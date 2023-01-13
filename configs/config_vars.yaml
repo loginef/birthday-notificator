@@ -5,3 +5,4 @@ logger-level: debug
 is_testing: false
 
 server-port: 8080
+secdist-path: secdist.json

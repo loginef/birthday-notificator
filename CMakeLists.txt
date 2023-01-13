@@ -1,18 +1,21 @@
 cmake_minimum_required(VERSION 3.12)
-project(service_template CXX)
+project(telegram_bot CXX)
 
 include(third_party/userver/cmake/SetupEnvironment.cmake)
 include(GNUInstallDirs)
 
 add_subdirectory(third_party/userver)
+add_subdirectory(third_party/tgbot-cpp)
 
 
 # Common sources
 add_library(${PROJECT_NAME}_objs OBJECT
     src/hello.hpp
     src/hello.cpp
+    src/bot.hpp
+    src/bot.cpp
 )
-target_link_libraries(${PROJECT_NAME}_objs PUBLIC userver-core)
+target_link_libraries(${PROJECT_NAME}_objs PUBLIC userver-core TgBot)
 
 
 # The Service
@@ -53,3 +56,4 @@ FILE(GLOB CONFIGS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/configs/*.yaml ${CMAKE_CURRE
 
 install(TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT ${PROJECT_NAME})
 install(FILES ${CONFIGS_FILES} DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/${PROJECT_NAME} COMPONENT ${PROJECT_NAME})
+

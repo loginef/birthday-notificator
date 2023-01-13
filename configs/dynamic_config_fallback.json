@@ -32,5 +32,6 @@
         }
       }
     }
-  }
+  },
+  "USERVER_HANDLER_STREAM_API_ENABLED": false
 }
