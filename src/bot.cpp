@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include <fmt/format.h>
+
 #include <userver/components/component_context.hpp>
 #include <userver/engine/async.hpp>
 #include <userver/engine/sleep.hpp>
@@ -12,6 +14,7 @@
 #include <userver/formats/json/value.hpp>
 #include <userver/logging/log.hpp>
 #include <userver/storages/secdist/component.hpp>
+#include <userver/testsuite/testpoint.hpp>
 #include <userver/tracing/span.hpp>
 
 #include <tgbot/tgbot.h>
@@ -27,7 +30,13 @@ struct Token {
       : token(doc["telegram_token"].As<std::string>()) {}
 };
 
-std::vector<std::string> bot_commands = {"start", "test"};
+std::vector<std::string> bot_commands = {"start", "chat_id"};
+
+std::string GetToken(const userver::components::ComponentContext& context) {
+  const auto& secdist = context.FindComponent<userver::components::Secdist>();
+  const auto& secdist_config = secdist.Get();
+  return secdist_config.Get<Token>().token;
+}
 
 }  // namespace
 
@@ -35,12 +44,16 @@ const std::string Bot::kName = "telegram-bot";
 
 Bot::Bot(const userver::components::ComponentConfig& config,
          const userver::components::ComponentContext& context)
-    : userver::components::LoggableComponentBase(config, context) {
-  const auto& secdist = context.FindComponent<userver::components::Secdist>();
-  const auto& secdist_config = secdist.Get();
-  telegram_token_ = secdist_config.Get<Token>().token;
-
-  Start();
+    : userver::components::LoggableComponentBase(config, context),
+      telegram_token_(GetToken(context)),
+      chat_id_(config["chat_id"].As<int64_t>()),
+      fake_api_(config["fake_api"].As<bool>()),
+      queue_(userver::concurrent::MpscQueue<
+             std::unique_ptr<SendMessageRequest>>::Create()),
+      consumer_(queue_->GetConsumer()) {
+  if (!fake_api_) {
+    Start();
+  }
 }
 
 void Bot::Start() {
@@ -57,27 +70,21 @@ void Bot::Run() {
   while (!userver::engine::current_task::ShouldCancel()) {
     userver::engine::InterruptibleSleepFor(std::chrono::seconds(1));
 
-    bool test_text_state = false;
-
+    // TODO override http client
     TgBot::Bot bot(telegram_token_);
-    TgBot::TgLongPoll long_poll(bot);
+    TgBot::TgLongPoll long_poll(bot, 100, 1);
 
     bot.getEvents().onCommand("start", [&bot](TgBot::Message::Ptr message) {
       bot.getApi().sendMessage(message->chat->id, "Hi!");
     });
 
-    bot.getEvents().onCommand("test", [&](TgBot::Message::Ptr message) {
-      bot.getApi().sendMessage(message->chat->id, "Enter text");
-      test_text_state = true;
+    bot.getEvents().onCommand("chat_id", [&](TgBot::Message::Ptr message) {
+      bot.getApi().sendMessage(
+          message->chat->id,
+          fmt::format("Your chat id is {}", message->chat->id));
     });
 
     bot.getEvents().onAnyMessage([&](TgBot::Message::Ptr message) {
-      if (test_text_state) {
-        bot.getApi().sendMessage(message->chat->id, message->text);
-        test_text_state = false;
-        return;
-      }
-
       for (const auto& command : bot_commands) {
         if ("/" + command == message->text) {
           return;
@@ -92,13 +99,56 @@ void Bot::Run() {
       bot.getApi().deleteWebhook();
 
       while (!userver::engine::current_task::ShouldCancel()) {
-        LOG_INFO() << "Long poll started\n";
+        LOG_INFO() << "Long poll started";
         long_poll.start();
+        LOG_INFO() << "Long poll finished, process other requests from other "
+                      "components";
+
+        auto consumer_task = userver::utils::Async("consumer", [this, &bot] {
+          // UINVARIANT(false, "falsse");
+          while (true) {
+            std::unique_ptr<SendMessageRequest> request;
+            if (consumer_.Pop(request, userver::engine::Deadline::FromDuration(
+                                           std::chrono::milliseconds(1)))) {
+              UINVARIANT(request, "request is null");
+              bot.getApi().sendMessage(chat_id_, request->text);
+            } else {
+              // the queue is empty and there are no more live producers
+              return;
+            }
+          }
+        });
+        consumer_task.Get();
       }
     } catch (std::exception& e) {
       LOG_ERROR() << "error: " << e.what();
     }
   }
+}
+
+void Bot::SendMessage(const std::string& text) {
+  TESTPOINT("bot-send-message", [&]() {
+    userver::formats::json::ValueBuilder builder;
+    builder["text"] = text;
+    return builder.ExtractValue();
+  }());
+
+  if (fake_api_) {
+    return;
+  }
+
+  auto producer = queue_->GetProducer();
+  auto producer_task = userver::utils::Async("producer", [&text, &producer] {
+    auto request =
+        std::make_unique<SendMessageRequest>(SendMessageRequest{.text = text});
+    if (!producer.Push(std::move(request),
+                       userver::engine::Deadline::FromDuration(
+                           std::chrono::seconds(60)))) {
+      throw std::runtime_error("Producer push timeout");
+    }
+  });
+  producer_task.Get();
+  // UINVARIANT(false, "falsse");
 }
 
 }  // namespace telegram_bot

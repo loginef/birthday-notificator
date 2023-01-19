@@ -1,0 +1,15 @@
+{
+    "telegram_token": "fake_token",
+    "postgresql_settings": {
+        "databases": {
+            "pg_birthday": [
+                {
+                    "shard_number": 0,
+                    "hosts": [
+                        "host=localhost port=15433 user=testsuite dbname=telegram_bot_pg_birthday"
+                    ]
+                }
+            ]
+        }
+    }
+}

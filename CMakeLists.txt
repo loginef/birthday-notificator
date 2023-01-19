@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
 project(telegram_bot CXX)
-
 include(third_party/userver/cmake/SetupEnvironment.cmake)
 include(GNUInstallDirs)
 
@@ -8,14 +7,18 @@ add_subdirectory(third_party/userver)
 add_subdirectory(third_party/tgbot-cpp)
 
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_FLAGS "-std=c++20")
+
 # Common sources
 add_library(${PROJECT_NAME}_objs OBJECT
-    src/hello.hpp
-    src/hello.cpp
+    src/birthday_notificator.hpp
+    src/birthday_notificator.cpp
     src/bot.hpp
     src/bot.cpp
 )
-target_link_libraries(${PROJECT_NAME}_objs PUBLIC userver-core TgBot)
+target_link_libraries(${PROJECT_NAME}_objs PUBLIC userver-core userver-postgresql TgBot)
 
 
 # The Service
@@ -25,20 +28,22 @@ target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}_objs)
 
 # Unit Tests
 add_executable(${PROJECT_NAME}_unittest
-    src/hello_test.cpp
+    src/birthday_notificator_test.cpp
 )
 target_link_libraries(${PROJECT_NAME}_unittest PRIVATE ${PROJECT_NAME}_objs userver-utest)
 add_google_tests(${PROJECT_NAME}_unittest)
 
 
 # Benchmarks
-add_executable(${PROJECT_NAME}_benchmark
-	src/hello_benchmark.cpp
-)
-target_link_libraries(${PROJECT_NAME}_benchmark PRIVATE ${PROJECT_NAME}_objs userver-ubench)
-add_google_benchmark_tests(${PROJECT_NAME}_benchmark)
+# add_executable(${PROJECT_NAME}_benchmark
+# 	src/hello_benchmark.cpp
+# )
+# target_link_libraries(${PROJECT_NAME}_benchmark PRIVATE ${PROJECT_NAME}_objs userver-ubench)
+# add_google_benchmark_tests(${PROJECT_NAME}_benchmark)
 
 # Functional Tests
+set(SECDIST_PATH ${CMAKE_CURRENT_SOURCE_DIR}/configs/secdist.json)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/configs/config_vars_testing.yaml.in ${CMAKE_CURRENT_SOURCE_DIR}/configs/config_vars_testing.yaml)
 add_subdirectory(tests)
 
 if(DEFINED ENV{PREFIX})

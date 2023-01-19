@@ -6,7 +6,7 @@ is_testing: true
 
 server-port: 8080
 
-secdist-path: /home/loginef/proj/telegram-bot/configs/secdist.json
+secdist-path: @SECDIST_PATH@
 notification_time_of_day: "10:00"
 notification_timezone: Europe/Moscow
 
