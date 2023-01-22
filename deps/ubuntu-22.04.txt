@@ -1,0 +1,2 @@
+libpq5=14.6-0ubuntu0.22.04.1
+libpq-dev=14.6-0ubuntu0.22.04.1
