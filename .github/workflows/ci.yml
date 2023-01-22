@@ -15,13 +15,13 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                  - os: ubuntu-20.04
+                  - os: ubuntu-22.04
                     make: test-debug
-                    info: g++-9 + test-debug
+                    info: clang + test-debug
 
-                  - os: ubuntu-20.04
+                  - os: ubuntu-22.04
                     make: test-release
-                    info: g++-9 + test-release
+                    info: clang + test-release
 
         name: '${{matrix.os}}: ${{matrix.info}}'
         runs-on: ${{matrix.os}}
@@ -44,11 +44,16 @@ jobs:
             run: |
                 sudo apt update
                 sudo apt install --allow-downgrades -y pep8 $(cat third_party/userver/scripts/docs/en/deps/${{matrix.os}}.md | tr '\n' ' ')
+                sudo apt install --allow-downgrades -y $(cat deps/${{matrix.os}}.txt | tr '\n' ' ')
 
           - name: Setup ccache
             run: |
                 ccache -M 2.0GB
                 ccache -s
+
+          - name: Clang version
+            run: |
+                clang --version
 
           - name: Run ${{matrix.make}}
             run: |
