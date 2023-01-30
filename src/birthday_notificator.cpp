@@ -23,6 +23,7 @@
 #include <userver/tracing/span.hpp>
 #include <userver/utils/datetime.hpp>
 #include <userver/utils/time_of_day.hpp>
+#include <userver/yaml_config/merge_schemas.hpp>
 
 namespace telegram_bot {
 
@@ -60,9 +61,28 @@ userver::formats::json::ValueBuilder SerializeArray(const T& array) {
   return json_array;
 }
 
+const std::string kComponentConfigSchema = R"(
+type: object
+description: ClickHouse client component
+additionalProperties: false
+properties:
+    notification_time_of_day:
+        description: Hour and minute after which notification can be sent
+        type: string
+    notification_timezone:
+        description: Timezone name for time of day calculation
+        type: string
+)";
+
 }  // namespace
 
 const std::string BirthdayNotificator::kName = "birthday-notificator";
+
+userver::yaml_config::Schema BirthdayNotificator::GetStaticConfigSchema() {
+  return userver::yaml_config::MergeSchemas<
+      userver::storages::postgres::DistLockComponentBase>(
+      kComponentConfigSchema);
+}
 
 BirthdayNotificator::BirthdayNotificator(
     const userver::components::ComponentConfig& config,

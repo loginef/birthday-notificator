@@ -16,6 +16,7 @@
 #include <userver/storages/secdist/component.hpp>
 #include <userver/testsuite/testpoint.hpp>
 #include <userver/tracing/span.hpp>
+#include <userver/yaml_config/merge_schemas.hpp>
 
 #include <tgbot/tgbot.h>
 
@@ -38,9 +39,27 @@ std::string GetToken(const userver::components::ComponentContext& context) {
   return secdist_config.Get<Token>().token;
 }
 
+const std::string kComponentConfigSchema = R"(
+type: object
+description: ClickHouse client component
+additionalProperties: false
+properties:
+    chat_id:
+        description: Recipient's telegram chat id to send messages
+        type: integer
+    fake_api:
+        description: Must be enabled in testing environments. If enabled, bot does not handle or perform HTTP requests
+        type: boolean
+)";
+
 }  // namespace
 
 const std::string Bot::kName = "telegram-bot";
+
+userver::yaml_config::Schema Bot::GetStaticConfigSchema() {
+  return userver::yaml_config::MergeSchemas<
+      userver::components::LoggableComponentBase>(kComponentConfigSchema);
+}
 
 Bot::Bot(const userver::components::ComponentConfig& config,
          const userver::components::ComponentContext& context)

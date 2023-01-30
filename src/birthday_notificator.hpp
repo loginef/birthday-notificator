@@ -9,7 +9,6 @@
 #include <userver/storages/postgres/dist_lock_component_base.hpp>
 #include <userver/storages/postgres/postgres_fwd.hpp>
 #include <userver/utils/time_of_day.hpp>
-// #include <userver/storages/postgres/result_set.hpp>
 
 #include "bot.hpp"
 
@@ -24,6 +23,8 @@ class BirthdayNotificator final
                       const userver::components::ComponentContext&);
 
   ~BirthdayNotificator() override;
+
+  static userver::yaml_config::Schema GetStaticConfigSchema();
 
  private:
   userver::storages::postgres::ClusterPtr postgres_;
