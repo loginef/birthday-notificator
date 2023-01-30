@@ -61,7 +61,6 @@ components_manager:
             fs-task-processor: fs-task-processor
 
         postgres-db:
-            #dbconnection: $dbconnection
             dbalias: pg_birthday
             blocking_task_processor: fs-task-processor
             dns_resolver: async
@@ -70,7 +69,6 @@ components_manager:
         secdist: {}
         default-secdist-provider:
             config: $secdist-path
-            #config: @SECDIST_PATH@
 
         telegram-bot:
             chat_id: $chat_id

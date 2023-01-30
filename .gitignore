@@ -9,4 +9,3 @@ compile_commands.json
 cmake-build-*
 Testing/
 configs/static_config.yaml
-configs/config_vars_testing.yaml
