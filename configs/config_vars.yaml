@@ -6,7 +6,7 @@ is_testing: false
 
 server-port: 8080
 
-secdist-path: /path/to/secdist.json # change me
+secdist-path: ./local_installation/etc/telegram_bot/secdist.json # change me
 notification_time_of_day: "10:00" # change me
 notification_timezone: Europe/Moscow # change me
 
