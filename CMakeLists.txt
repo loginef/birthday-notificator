@@ -43,8 +43,6 @@ add_google_tests(${PROJECT_NAME}_unittest)
 # add_google_benchmark_tests(${PROJECT_NAME}_benchmark)
 
 # Functional Tests
-set(SECDIST_PATH ${CMAKE_CURRENT_SOURCE_DIR}/configs/secdist.json)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/configs/config_vars_testing.yaml.in ${CMAKE_CURRENT_SOURCE_DIR}/configs/config_vars_testing.yaml)
 add_subdirectory(tests)
 
 if(DEFINED ENV{PREFIX})

@@ -7,6 +7,11 @@ else()
     set(PYTEST_ARGS_CONFIG_VARS "")
 endif()
 
+set(SECDIST_PATH "${CMAKE_SOURCE_DIR}/configs/secdist.json")
+if (EXISTS "${SECDIST_PATH}")
+    set(PYTEST_ARGS_CONFIG_VARS ${PYTEST_ARGS_CONFIG_VARS} "--service-secdist=${SECDIST_PATH}")
+endif()
+
 userver_testsuite_add(
   SERVICE_TARGET telegram_bot
   REQUIREMENTS ${CMAKE_CURRENT_SOURCE_DIR}/requirements.txt
