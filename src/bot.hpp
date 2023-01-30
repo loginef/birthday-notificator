@@ -60,6 +60,8 @@ class Bot : public userver::components::LoggableComponentBase {
 
   void SendMessage(const std::string& text);
 
+  static userver::yaml_config::Schema GetStaticConfigSchema();
+
  private:
   struct SendMessageRequest {
     std::string text;
