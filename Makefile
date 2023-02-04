@@ -75,6 +75,8 @@ format:
 # Internal hidden targets that are used only in docker environment
 .PHONY: --in-docker-start-debug --in-docker-start-release
 --in-docker-start-debug --in-docker-start-release: --in-docker-start-%: install-%
+	@sed -i 's/config_vars.yaml/config_vars.docker.yaml/g' /home/user/.local/etc/telegram_bot/static_config.yaml
+	@psql 'postgresql://user:password@service-postgres:5432/telegram_bot_pg_birthday'
 	@/home/user/.local/bin/telegram_bot \
 		--config /home/user/.local/etc/telegram_bot/static_config.yaml
 
@@ -92,3 +94,5 @@ docker-cmake-debug docker-build-debug docker-test-debug docker-clean-debug docke
 .PHONY: docker-clean-data
 docker-clean-data:
 	@docker-compose down -v
+	@rm -rf ./.pgdata
+	@rm -rf ./.cores

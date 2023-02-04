@@ -5,6 +5,7 @@ compile_commands.json
 .idea/
 .vscode/
 .cores/
+.pgdata/
 .ccache/
 cmake-build-*
 Testing/
