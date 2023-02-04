@@ -1,10 +1,27 @@
 version: "2.3"
 
 services:
+    postgres:
+        container_name: service-postgres
+        image: postgres:14
+        environment:
+          - POSTGRES_DB=telegram_bot_pg_birthday
+          - POSTGRES_USER=user
+          - POSTGRES_PASSWORD=password
+        ports:
+          - 5432
+        volumes:
+          - ./postgresql/schemas:/docker-entrypoint-initdb.d
+          - ./.pgdata:/var/lib/postgresql/data
+        networks:
+          - postgres
+
     telegram_bot-container:
-        image: ghcr.io/userver-framework/docker-userver-build-base:v1a
-        privileged: true
-        network_mode: bridge
+        # image: ghcr.io/userver-framework/docker-userver-build-base:v1a
+        build:
+            context: .
+            dockerfile: Dockerfile
+        # privileged: true
         environment:
           - PREFIX=${PREFIX:-~/.local}
           - CC
@@ -20,8 +37,18 @@ services:
         volumes:
           - .:/telegram_bot:rw
           - ./third_party/userver/tools/docker:/tools:ro
+          - ${TC_CORES_DIR:-./.cores}:/cores:rw
         ports:
           - 8080:8080
         working_dir: /telegram_bot
         entrypoint:
           - /tools/run_as_user.sh
+        depends_on:
+          - postgres
+        networks:
+          - postgres
+
+
+networks:
+    postgres:
+        driver: bridge
