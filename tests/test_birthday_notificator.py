@@ -67,7 +67,7 @@ def fetch_birthdays(pgsql):
 
 
 @pytest.mark.now(_NOW.isoformat())
-async def test_basic(service_client, pgsql, testpoint, mockserver):
+async def test_notification(service_client, pgsql, testpoint, mockserver):
     @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/getMe')
     def _handler_get_me(request):
         return {

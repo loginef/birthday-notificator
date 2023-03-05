@@ -154,7 +154,7 @@ void Bot::Run() {
         }
       }
 
-      bot.getApi().sendMessage(message->chat->id, "unknown command");
+      bot.getApi().sendMessage(message->chat->id, "Unknown command");
     });
 
     try {
