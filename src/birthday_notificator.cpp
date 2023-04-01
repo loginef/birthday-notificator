@@ -29,7 +29,6 @@ namespace telegram_bot {
 
 namespace {
 
-// TODO c++20
 const std::chrono::days kForgottenBirthdaySearchDistance(3);
 
 const std::string kFetchBirthdays = R"(
