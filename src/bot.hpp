@@ -72,6 +72,7 @@ class Bot : public userver::components::LoggableComponentBase {
   std::string telegram_token_;
   int64_t chat_id_;
   std::string telegram_host_;
+  userver::storages::postgres::ClusterPtr postgres_;
   std::shared_ptr<
       userver::concurrent::MpscQueue<std::unique_ptr<SendMessageRequest>>>
       queue_;
