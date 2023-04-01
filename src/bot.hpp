@@ -3,6 +3,7 @@
 #include <atomic>
 #include <string>
 
+#include <userver/clients/http/client.hpp>
 #include <userver/components/loggable_component_base.hpp>
 #include <userver/engine/task/task_with_result.hpp>
 
@@ -67,9 +68,10 @@ class Bot : public userver::components::LoggableComponentBase {
     std::string text;
   };
 
+  userver::clients::http::Client& http_client_;
   std::string telegram_token_;
   int64_t chat_id_;
-  bool fake_api_;
+  std::string telegram_host_;
   std::shared_ptr<
       userver::concurrent::MpscQueue<std::unique_ptr<SendMessageRequest>>>
       queue_;

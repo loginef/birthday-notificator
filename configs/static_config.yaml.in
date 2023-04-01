@@ -72,7 +72,7 @@ components_manager:
 
         telegram-bot:
             chat_id: $chat_id
-            fake_api: $is_testing
+            telegram_host: "https://api.telegram.org"
 
         birthday-notificator:
             # distlock settings

@@ -7,11 +7,16 @@
 
 #include <fmt/format.h>
 
+#include <userver/clients/http/client.hpp>
+#include <userver/clients/http/component.hpp>
+#include <userver/clients/http/form.hpp>
+#include <userver/clients/http/response.hpp>
 #include <userver/components/component_context.hpp>
 #include <userver/engine/async.hpp>
 #include <userver/engine/sleep.hpp>
 #include <userver/engine/task/cancel.hpp>
 #include <userver/formats/json/value.hpp>
+#include <userver/http/common_headers.hpp>
 #include <userver/logging/log.hpp>
 #include <userver/storages/secdist/component.hpp>
 #include <userver/testsuite/testpoint.hpp>
@@ -47,10 +52,49 @@ properties:
     chat_id:
         description: Recipient's telegram chat id to send messages
         type: integer
-    fake_api:
-        description: Must be enabled in testing environments. If enabled, bot does not handle or perform HTTP requests
-        type: boolean
+    telegram_host:
+        description: Host to connect to
+        type: string
 )";
+
+class TelegramApiHttpClient final : public TgBot::HttpClient {
+ public:
+  explicit TelegramApiHttpClient(userver::clients::http::Client& client)
+      : client_{client} {}
+
+  virtual std::string makeRequest(
+      const TgBot::Url& url,
+      const std::vector<TgBot::HttpReqArg>& args) const override {
+    const bool has_files = std::any_of(
+        args.begin(), args.end(), [](const auto& arg) { return arg.isFile; });
+    UINVARIANT(!has_files, "Unexpected file");
+    auto request =
+        client_.CreateRequest()
+            ->method(args.empty() ? userver::clients::http::HttpMethod::kGet
+                                  : userver::clients::http::HttpMethod::kPost)
+            ->url(url.protocol + "://" + url.host + url.path)
+            ->timeout(500)  // TODO customize
+            ->headers(
+                {{userver::http::headers::kContentType, "multipart/form-data"}})
+            ->retry(1);
+
+    if (!args.empty()) {
+      userver::clients::http::Form form;
+      for (const auto& arg : args) {
+        form.AddContent(arg.name, arg.value);
+      }
+      request->form(form);
+    }
+    LOG_DEBUG() << "Request: " << request->GetUrl();
+
+    auto response = request->perform();
+    response->raise_for_status();
+    return std::move(*response).body();
+  }
+
+ private:
+  userver::clients::http::Client& client_;
+};
 
 }  // namespace
 
@@ -64,15 +108,15 @@ userver::yaml_config::Schema Bot::GetStaticConfigSchema() {
 Bot::Bot(const userver::components::ComponentConfig& config,
          const userver::components::ComponentContext& context)
     : userver::components::LoggableComponentBase(config, context),
+      http_client_{context.FindComponent<userver::components::HttpClient>()
+                       .GetHttpClient()},
       telegram_token_(GetToken(context)),
       chat_id_(config["chat_id"].As<int64_t>()),
-      fake_api_(config["fake_api"].As<bool>()),
+      telegram_host_(config["telegram_host"].As<std::string>()),
       queue_(userver::concurrent::MpscQueue<
              std::unique_ptr<SendMessageRequest>>::Create()),
       consumer_(queue_->GetConsumer()) {
-  if (!fake_api_) {
-    Start();
-  }
+  Start();
 }
 
 void Bot::Start() {
@@ -89,8 +133,8 @@ void Bot::Run() {
   while (!userver::engine::current_task::ShouldCancel()) {
     userver::engine::InterruptibleSleepFor(std::chrono::seconds(1));
 
-    // TODO override http client
-    TgBot::Bot bot(telegram_token_);
+    TelegramApiHttpClient client{http_client_};
+    TgBot::Bot bot(telegram_token_, client, telegram_host_);
     TgBot::TgLongPoll long_poll(bot, 100, 1);
 
     bot.getEvents().onCommand("start", [&bot](TgBot::Message::Ptr message) {
@@ -110,7 +154,7 @@ void Bot::Run() {
         }
       }
 
-      bot.getApi().sendMessage(message->chat->id, "unknown command");
+      bot.getApi().sendMessage(message->chat->id, "Unknown command");
     });
 
     try {
@@ -124,7 +168,6 @@ void Bot::Run() {
                       "components";
 
         auto consumer_task = userver::utils::Async("consumer", [this, &bot] {
-          // UINVARIANT(false, "falsse");
           while (true) {
             std::unique_ptr<SendMessageRequest> request;
             if (consumer_.Pop(request, userver::engine::Deadline::FromDuration(
@@ -146,16 +189,6 @@ void Bot::Run() {
 }
 
 void Bot::SendMessage(const std::string& text) {
-  TESTPOINT("bot-send-message", [&]() {
-    userver::formats::json::ValueBuilder builder;
-    builder["text"] = text;
-    return builder.ExtractValue();
-  }());
-
-  if (fake_api_) {
-    return;
-  }
-
   auto producer = queue_->GetProducer();
   auto producer_task = userver::utils::Async("producer", [&text, &producer] {
     auto request =
@@ -167,7 +200,6 @@ void Bot::SendMessage(const std::string& text) {
     }
   });
   producer_task.Get();
-  // UINVARIANT(false, "falsse");
 }
 
 }  // namespace telegram_bot
