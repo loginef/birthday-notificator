@@ -17,7 +17,6 @@ services:
           - postgres
 
     telegram_bot-container:
-        # image: ghcr.io/userver-framework/docker-userver-build-base:v1a
         build:
             context: .
             dockerfile: Dockerfile
@@ -34,6 +33,7 @@ services:
           - CORES_DIR=/cores
           - CXX
           - MAKE_OPTS
+          - CMAKE_OPTIONS
         volumes:
           - .:/telegram_bot:rw
           - ./third_party/userver/tools/docker:/tools:ro

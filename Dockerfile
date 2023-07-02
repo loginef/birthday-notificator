@@ -1,2 +1,2 @@
-FROM ghcr.io/userver-framework/docker-userver-build-base:v1a
+FROM ghcr.io/userver-framework/ubuntu-userver-build-base:v1
 RUN apt-get install -y clang

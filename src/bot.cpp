@@ -72,24 +72,24 @@ class TelegramApiHttpClient final : public TgBot::HttpClient {
     UINVARIANT(!has_files, "Unexpected file");
     auto request =
         client_.CreateRequest()
-            ->method(args.empty() ? userver::clients::http::HttpMethod::kGet
-                                  : userver::clients::http::HttpMethod::kPost)
-            ->url(url.protocol + "://" + url.host + url.path)
-            ->timeout(500)  // TODO customize
-            ->headers(
+            .method(args.empty() ? userver::clients::http::HttpMethod::kGet
+                                 : userver::clients::http::HttpMethod::kPost)
+            .url(url.protocol + "://" + url.host + url.path)
+            .timeout(500)  // TODO customize
+            .headers(
                 {{userver::http::headers::kContentType, "multipart/form-data"}})
-            ->retry(1);
+            .retry(1);
 
     if (!args.empty()) {
       userver::clients::http::Form form;
       for (const auto& arg : args) {
         form.AddContent(arg.name, arg.value);
       }
-      request->form(form);
+      request.form(form);
     }
-    LOG_DEBUG() << "Request: " << request->GetUrl();
+    LOG_DEBUG() << "Request: " << request.GetUrl();
 
-    auto response = request->perform();
+    auto response = request.perform();
     response->raise_for_status();
     return std::move(*response).body();
   }
