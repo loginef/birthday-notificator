@@ -1,4 +1,4 @@
-CMAKE_COMMON_FLAGS ?= -DUSERVER_OPEN_SOURCE_BUILD=1 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+CMAKE_COMMON_FLAGS ?= -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 CMAKE_DEBUG_FLAGS ?= -DUSERVER_SANITIZE='addr ub'
 CMAKE_RELEASE_FLAGS ?=
 CMAKE_OS_FLAGS ?= -DUSERVER_FEATURE_CRYPTOPP_BLAKE2=0 -DUSERVER_FEATURE_REDIS_HI_MALLOC=1
@@ -56,6 +56,8 @@ clean-debug clean-release: clean-%:
 dist-clean:
 	@rm -rf build_*
 	@rm -f ./configs/static_config.yaml
+	@rm -rf tests/__pycache__/
+	@rm -rf tests/.pytest_cache/
 
 # Install
 .PHONY: install-debug install-release
