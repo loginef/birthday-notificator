@@ -10,3 +10,5 @@ compile_commands.json
 cmake-build-*
 Testing/
 configs/static_config.yaml
+debian/telegram-bot*
+debian/files

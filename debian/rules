@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+
+clean:
+	make dist-clean
+
+build:
+	make build-release
+
+binary:
+	mkdir -p debian/telegram-bot/usr/local/bin
+	mkdir -p debian/telegram-bot/usr/local/etc
+	make install DESTDIR=../debian/telegram-bot
+	dh_makeshlibs
+	dh_gencontrol
+	dh_builddeb

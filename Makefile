@@ -58,6 +58,7 @@ dist-clean:
 	@rm -f ./configs/static_config.yaml
 	@rm -rf tests/__pycache__/
 	@rm -rf tests/.pytest_cache/
+	@rm -rf ./debian/telegram-bot
 
 # Install
 .PHONY: install-debug install-release
