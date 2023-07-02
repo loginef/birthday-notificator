@@ -12,3 +12,4 @@ Testing/
 configs/static_config.yaml
 debian/telegram-bot*
 debian/files
+debian/.debhelper

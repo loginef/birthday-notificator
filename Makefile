@@ -99,3 +99,7 @@ docker-clean-data:
 	@docker-compose down -v
 	@rm -rf ./.pgdata
 	@rm -rf ./.cores
+
+.PHONY: deb
+deb:
+	dpkg-buildpackage -b -uc -us
