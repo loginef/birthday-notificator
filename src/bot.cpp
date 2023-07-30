@@ -13,16 +13,16 @@
 #include <userver/clients/http/component.hpp>
 #include <userver/clients/http/form.hpp>
 #include <userver/clients/http/response.hpp>
-#include <userver/components/component_context.hpp>
 #include <userver/engine/async.hpp>
 #include <userver/engine/sleep.hpp>
 #include <userver/engine/task/cancel.hpp>
 #include <userver/formats/json/value.hpp>
 #include <userver/http/common_headers.hpp>
 #include <userver/logging/log.hpp>
+#include <userver/storages/postgres/component.hpp>
 #include <userver/storages/secdist/component.hpp>
-#include <userver/testsuite/testpoint.hpp>
 #include <userver/tracing/span.hpp>
+#include <userver/utils/async.hpp>
 #include <userver/yaml_config/merge_schemas.hpp>
 
 #include <tgbot/tgbot.h>
@@ -75,7 +75,7 @@ class TelegramApiHttpClient final : public TgBot::HttpClient {
             .method(args.empty() ? userver::clients::http::HttpMethod::kGet
                                  : userver::clients::http::HttpMethod::kPost)
             .url(url.protocol + "://" + url.host + url.path)
-            .timeout(500)  // TODO customize
+            .timeout(10000)  // TODO customize
             .headers(
                 {{userver::http::headers::kContentType, "multipart/form-data"}})
             .retry(1);
@@ -239,6 +239,7 @@ void Bot::Run() {
         LOG_INFO() << "Long poll finished, process other requests from other "
                       "components";
 
+        // TODO rewrite as AsyncEventChannel
         auto consumer_task = userver::utils::Async("consumer", [this, &bot] {
           while (true) {
             std::unique_ptr<SendMessageRequest> request;

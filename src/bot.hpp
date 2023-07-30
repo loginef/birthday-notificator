@@ -1,54 +1,15 @@
 #pragma once
 
-#include <atomic>
 #include <string>
 
 #include <userver/clients/http/client.hpp>
-#include <userver/components/loggable_component_base.hpp>
-#include <userver/engine/task/task_with_result.hpp>
-
-//
-#include <chrono>
-#include <exception>
-#include <string>
-#include <vector>
-
-#include <fmt/format.h>
-
-#include <userver/components/component_context.hpp>
-#include <userver/engine/async.hpp>
-#include <userver/engine/sleep.hpp>
-#include <userver/engine/task/cancel.hpp>
-#include <userver/formats/json/value.hpp>
-#include <userver/logging/log.hpp>
-#include <userver/server/handlers/http_handler_base.hpp>
-#include <userver/storages/secdist/component.hpp>
-#include <userver/tracing/span.hpp>
-
-#include <chrono>
-#include <exception>
-#include <optional>
-#include <string>
-#include <tuple>
-#include <vector>
-
-#include <fmt/format.h>
-
 #include <userver/components/component_config.hpp>
 #include <userver/components/component_context.hpp>
+#include <userver/components/loggable_component_base.hpp>
 #include <userver/concurrent/mpsc_queue.hpp>
-#include <userver/engine/async.hpp>
-#include <userver/engine/sleep.hpp>
 #include <userver/engine/task/cancel.hpp>
-#include <userver/formats/json/value.hpp>
-#include <userver/logging/log.hpp>
+#include <userver/engine/task/task_with_result.hpp>
 #include <userver/storages/postgres/cluster.hpp>
-#include <userver/storages/postgres/component.hpp>
-#include <userver/storages/secdist/component.hpp>
-#include <userver/testsuite/testpoint.hpp>
-#include <userver/tracing/span.hpp>
-#include <userver/utils/datetime.hpp>
-#include <userver/utils/time_of_day.hpp>
 
 namespace telegram_bot {
 
