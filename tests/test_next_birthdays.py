@@ -168,6 +168,9 @@ async def test_next_birthdays(
             year=None,
         )
 
+    # to update mocked time
+    await service_client.invalidate_caches()
+
     @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/getMe')
     def _handler_get_me(request):
         return {

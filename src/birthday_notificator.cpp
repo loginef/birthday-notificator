@@ -2,7 +2,6 @@
 
 #include <chrono>
 #include <exception>
-#include <optional>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -22,7 +21,6 @@
 #include <userver/testsuite/testpoint.hpp>
 #include <userver/tracing/span.hpp>
 #include <userver/utils/datetime.hpp>
-#include <userver/utils/time_of_day.hpp>
 #include <userver/yaml_config/merge_schemas.hpp>
 
 namespace telegram_bot {
@@ -122,6 +120,7 @@ void BirthdayNotificator::DoWork() {
 }
 
 void BirthdayNotificator::RunIteration() {
+  userver::tracing::Span span(kName);
   LOG_INFO() << "Start birthday-notificator iteration";
   const auto now = userver::utils::datetime::Now();
   LOG_DEBUG() << "at " << userver::utils::datetime::Timestring(now);
