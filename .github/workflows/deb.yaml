@@ -1,5 +1,5 @@
 name: deb
-'on': []
+'on': workflow_call
 jobs:
     make:
         runs-on: ubuntu-22.04
