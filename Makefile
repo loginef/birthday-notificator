@@ -58,6 +58,7 @@ dist-clean:
 	@rm -f ./configs/static_config.yaml
 	@rm -rf tests/__pycache__/
 	@rm -rf tests/.pytest_cache/
+	@rm -rf ./debian/telegram-bot
 
 # Install
 .PHONY: install-debug install-release
@@ -98,3 +99,7 @@ docker-clean-data:
 	@docker-compose down -v
 	@rm -rf ./.pgdata
 	@rm -rf ./.cores
+
+.PHONY: deb
+deb:
+	dpkg-buildpackage -b -uc -us

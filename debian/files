@@ -1,0 +1,3 @@
+telegram-bot-dbgsym_0.0.1_amd64.ddeb debug optional automatic=yes
+telegram-bot_0.0.1_amd64.buildinfo devel optional
+telegram-bot_0.0.1_amd64.deb devel optional

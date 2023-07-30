@@ -1,0 +1,10 @@
+Source: telegram-bot
+Section: devel
+Priority: optional
+Maintainer: loginef <loginef@mail.ru>
+Build-Depends: build-essential, debhelper (>= 9)
+
+Package: telegram-bot
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: TODO
