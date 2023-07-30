@@ -1,0 +1,26 @@
+name: deb
+'on': workflow_call
+jobs:
+    make:
+        runs-on: ubuntu-22.04
+        steps:
+          - uses: actions/checkout@v2
+            with:
+                submodules: true
+          - name: Install packages
+            run: |
+                sudo apt update
+                sudo apt install --allow-downgrades -y pep8 $(cat third_party/userver/scripts/docs/en/deps/ubuntu-22.04.md | tr '\n' ' ')
+                sudo apt install --allow-downgrades -y $(cat deps/ubuntu-22.04.txt | tr '\n' ' ')
+          - name: Run test-release
+            run: |
+                make test-release
+          - name: Make deb 
+            run: |
+                make dist-clean
+                make deb
+          - name: Upload deb
+            uses: actions/upload-artifact@v3
+            with:
+              name: telegram-bot.deb
+              path: ../*.deb
