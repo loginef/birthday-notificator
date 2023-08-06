@@ -21,8 +21,9 @@ jobs:
                 make dist-clean
                 make deb
           - run: mv ../*.deb ./telegram-bot.deb
+          - run: ls
           - name: Upload deb
             uses: actions/upload-artifact@v3
             with:
               name: telegram-bot.deb
-              path: ../*.deb
+              path: telegram-bot.deb
