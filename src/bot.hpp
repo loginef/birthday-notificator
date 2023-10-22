@@ -11,6 +11,10 @@
 #include <userver/engine/task/task_with_result.hpp>
 #include <userver/storages/postgres/cluster.hpp>
 
+#include <tgbot/tgbot.h>
+
+#include "button.hpp"
+
 namespace telegram_bot {
 
 class Bot : public userver::components::LoggableComponentBase {
@@ -20,13 +24,17 @@ class Bot : public userver::components::LoggableComponentBase {
   Bot(const userver::components::ComponentConfig&,
       const userver::components::ComponentContext&);
 
-  void SendMessage(const std::string& text);
+  void SendMessage(const std::string& text) const;
+  void SendMessageWithKeyboard(
+      const std::string& text,
+      const std::vector<std::vector<Button>>& button_rows) const;
 
   static userver::yaml_config::Schema GetStaticConfigSchema();
 
  private:
   struct SendMessageRequest {
     std::string text;
+    std::optional<std::vector<std::vector<Button>>> keyboard;
   };
 
   userver::clients::http::Client& http_client_;
@@ -44,6 +52,7 @@ class Bot : public userver::components::LoggableComponentBase {
  private:
   void Start();
   void Run();
+  void SendSendMessageRequest(SendMessageRequest&& request) const;
 };
 
 }  // namespace telegram_bot

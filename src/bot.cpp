@@ -26,6 +26,8 @@
 #include <userver/yaml_config/merge_schemas.hpp>
 
 #include <tgbot/tgbot.h>
+#include <tgbot/types/InlineKeyboardButton.h>
+#include <tgbot/types/InlineKeyboardMarkup.h>
 
 namespace telegram_bot {
 
@@ -38,7 +40,12 @@ struct Token {
       : token(doc["telegram_token"].As<std::string>()) {}
 };
 
-std::vector<std::string> bot_commands = {"start", "chat_id", "next_birthdays"};
+std::vector<std::string> bot_commands = {
+    "start",              //
+    "chat_id",            //
+    "next_birthdays",     //
+    "next_birthdays_new"  //
+};
 
 std::string GetToken(const userver::components::ComponentContext& context) {
   const auto& secdist = context.FindComponent<userver::components::Secdist>();
@@ -102,7 +109,8 @@ const std::string kAllBirthdaysQuery = R"(
 SELECT
   birthdays.person,
   birthdays.m,
-  birthdays.d
+  birthdays.d,
+  birthdays.id
 FROM birthday.birthdays
 )";
 
@@ -110,7 +118,10 @@ struct NextBirthday {
   std::string person;
   int m{};
   int d{};
+  int32_t id{};
 };
+
+const int32_t kNextBirthdaysLimitOld = 5;
 
 std::string GetNextBirthdaysMessage(
     const int64_t sender_chat_id, const int64_t allowed_chat_id,
@@ -146,16 +157,174 @@ std::string GetNextBirthdaysMessage(
               return std::tuple(l_year, lhs.m, lhs.d) <
                      std::tuple(r_year, rhs.m, rhs.d);
             });
-  if (list.size() > 5) {
-    list.resize(5);
+  if (list.size() > kNextBirthdaysLimitOld) {
+    list.resize(kNextBirthdaysLimitOld);
   }
 
-  std::string result = "Next birthdays:";
+  std::string message = "Next birthdays:";
   for (const auto& birthday : list) {
-    result += fmt::format("\n{} on {:02}.{:02}", birthday.person, birthday.d,
-                          birthday.m);
+    message += fmt::format("\n{} on {:02}.{:02}", birthday.person, birthday.d,
+                           birthday.m);
   }
+  return message;
+}
+
+struct MessageWithOptionalKeyboard {
+  std::string text;
+  std::optional<std::vector<std::vector<Button>>> keyboard;
+};
+
+const int32_t kNextBirthdaysLimitNew = 6;
+
+MessageWithOptionalKeyboard GetNextBirthdaysMessageNew(
+    const int64_t sender_chat_id, const int64_t allowed_chat_id,
+    userver::storages::postgres::Cluster& postgres) {
+  if (sender_chat_id != allowed_chat_id) {
+    return {"No birthdays for you, sorry", {}};
+  }
+
+  const auto rows =
+      postgres.Execute(userver::storages::postgres::ClusterHostType::kMaster,
+                       kAllBirthdaysQuery);
+  if (rows.IsEmpty()) {
+    return {"There are no birthdays", {}};
+  }
+  auto list = rows.AsContainer<std::vector<NextBirthday>>(
+      userver::storages::postgres::kRowTag);
+
+  cctz::time_zone notification_timezone;
+  if (!cctz::load_time_zone("Europe/Moscow", &notification_timezone)) {
+    throw std::runtime_error("Unknown timezone Europe/Moscow");
+  }
+  const auto now = userver::utils::datetime::Now();
+  LOG_DEBUG() << "at " << userver::utils::datetime::Timestring(now);
+  const auto local_time = cctz::convert(now, notification_timezone);
+  const auto local_day = cctz::civil_day(local_time);
+
+  std::sort(list.begin(), list.end(),
+            [local_day](const NextBirthday& lhs, const NextBirthday& rhs) {
+              const int l_year = std::tuple(lhs.m, lhs.d) <
+                                 std::tuple(local_day.month(), local_day.day());
+              const int r_year = std::tuple(rhs.m, rhs.d) <
+                                 std::tuple(local_day.month(), local_day.day());
+              return std::tuple(l_year, lhs.m, lhs.d) <
+                     std::tuple(r_year, rhs.m, rhs.d);
+            });
+  if (list.size() > kNextBirthdaysLimitNew) {
+    list.resize(kNextBirthdaysLimitNew);
+  }
+
+  std::string message = fmt::format("Next {} birthdays:", list.size());
+  std::vector<std::vector<Button>> keyboard;
+  for (const auto& birthday : list) {
+    auto title = fmt::format("{} on {:02}.{:02}", birthday.person, birthday.d,
+                             birthday.m);
+    keyboard.push_back({Button{std::move(title), ButtonType::kEditBirthday,
+                               ButtonContext::kNextBirthdays, birthday.id}});
+  }
+  return {std::move(message), std::move(keyboard)};
+}
+
+// may return nullptr
+TgBot::GenericReply::Ptr MakeReplyMarkup(
+    std::optional<std::vector<std::vector<Button>>>&& keyboard) {
+  if (!keyboard.has_value()) {
+    return nullptr;
+  }
+
+  if (keyboard->empty()) {
+    LOG_ERROR() << "Empty keyboard provided, programming error";
+    return nullptr;
+  }
+
+  std::vector<std::vector<TgBot::InlineKeyboardButton::Ptr>> inline_keyboard;
+  inline_keyboard.reserve(keyboard->size());
+  for (auto& row : *keyboard) {
+    if (row.empty()) {
+      LOG_ERROR() << "Empty keyboard row provided, programming error";
+      return nullptr;
+    }
+
+    std::vector<TgBot::InlineKeyboardButton::Ptr> inline_row;
+    inline_row.reserve(row.size());
+    for (auto& button : row) {
+      SerializedButton serialized_button(std::move(button));
+      auto inline_button = std::make_shared<TgBot::InlineKeyboardButton>();
+      inline_button->text = std::move(serialized_button.title);
+      inline_button->callbackData = std::move(serialized_button.data);
+      inline_button->pay = false;
+      inline_row.push_back(std::move(inline_button));
+    }
+
+    inline_keyboard.push_back(std::move(inline_row));
+  }
+
+  auto result = std::make_shared<TgBot::InlineKeyboardMarkup>();
+  result->inlineKeyboard = std::move(inline_keyboard);
   return result;
+}
+
+void UpdateMessageWithKeyboard(
+    TgBot::Bot& bot, int32_t chat_id, int32_t message_id,
+    const std::string& text,
+    const std::vector<std::vector<Button>>& button_rows) {
+  bot.getApi().editMessageText(
+      text, chat_id, message_id, "" /* inlineMessageId */, "" /* parseMode */,
+      false /* disableWebPagePreview */, MakeReplyMarkup(button_rows));
+}
+
+void ProcessEditBirthdayCommand(TgBot::Bot& bot, int32_t chat_id,
+                                int32_t message_id,
+                                const ButtonData& button_data) {
+  LOG_INFO() << "Got edit birthday command";
+  if (button_data.birthday_id.has_value()) {
+    std::vector<std::vector<Button>> keyboard{
+        {Button{"Delete", ButtonType::kDeleteBirthday,
+                ButtonContext::kNextBirthdaysEditBirthday,
+                *button_data.birthday_id}},
+        {Button{"Cancel", ButtonType::kCancel,
+                ButtonContext::kNextBirthdaysEditBirthday,
+                *button_data.birthday_id}}};
+    // TODO list details of a birthday instead
+    UpdateMessageWithKeyboard(bot, chat_id, message_id, "Select option",
+                              keyboard);
+  } else {
+    LOG_WARNING() << "No birthday_id in button data";
+    UpdateMessageWithKeyboard(bot, chat_id, message_id, "Canceled", {});
+  }
+}
+
+const std::string kDeleteBirthdayQuery = R"(
+DELETE
+FROM birthday.birthdays
+WHERE birthdays.id = $1
+)";
+
+void DeleteBirthdayInDB(const int32_t birthday_id,
+                        userver::storages::postgres::Cluster& postgres) {
+  // TODO check ownership
+  postgres.Execute(userver::storages::postgres::ClusterHostType::kMaster,
+                   kDeleteBirthdayQuery, birthday_id);
+}
+
+void ProcessDeleteBirthdayCommand(
+    TgBot::Bot& bot, int32_t chat_id, int32_t message_id,
+    const ButtonData& button_data,
+    userver::storages::postgres::Cluster& postgres) {
+  LOG_INFO() << "Got delete birthday command";
+  if (button_data.birthday_id.has_value()) {
+    DeleteBirthdayInDB(*button_data.birthday_id, postgres);
+    UpdateMessageWithKeyboard(bot, chat_id, message_id, "Deleted", {});
+  } else {
+    LOG_WARNING() << "No birthday_id in button data";
+    UpdateMessageWithKeyboard(bot, chat_id, message_id, "Canceled", {});
+  }
+}
+
+void ProcessCancelCommand(TgBot::Bot& bot, int32_t chat_id,
+                          int32_t message_id) {
+  LOG_INFO() << "Got cancel command";
+  UpdateMessageWithKeyboard(bot, chat_id, message_id, "Canceled", {});
 }
 
 }  // namespace
@@ -219,6 +388,16 @@ void Bot::Run() {
               GetNextBirthdaysMessage(message->chat->id, chat_id_, *postgres_));
         });
 
+    bot.getEvents().onCommand(
+        "next_birthdays_new", [&](TgBot::Message::Ptr message) {
+          auto response = GetNextBirthdaysMessageNew(message->chat->id,
+                                                     chat_id_, *postgres_);
+          bot.getApi().sendMessage(
+              message->chat->id, response.text, false /*disableWebPagePreview*/,
+              0 /*replyToMessageId*/,
+              MakeReplyMarkup(std::move(response.keyboard)));
+        });
+
     bot.getEvents().onAnyMessage([&](TgBot::Message::Ptr message) {
       for (const auto& command : bot_commands) {
         if ("/" + command == message->text) {
@@ -228,6 +407,48 @@ void Bot::Run() {
 
       bot.getApi().sendMessage(message->chat->id, "Unknown command");
     });
+
+    bot.getEvents().onCallbackQuery(
+        [&](const TgBot::CallbackQuery::Ptr callback) {
+          if (callback->message) {
+            if (callback->message->chat->id != chat_id_) {
+              UpdateMessageWithKeyboard(bot, callback->message->chat->id,
+                                        callback->message->messageId,
+                                        "Unauthorized", {});
+            } else {
+              if (!callback->data.empty()) {
+                try {
+                  const auto button_data =
+                      ButtonData::FromBase64Serialized(callback->data);
+                  switch (button_data.type) {
+                    case ButtonType::kEditBirthday:
+                      ProcessEditBirthdayCommand(
+                          bot, callback->message->chat->id,
+                          callback->message->messageId, button_data);
+                      break;
+                    case ButtonType::kDeleteBirthday:
+                      ProcessDeleteBirthdayCommand(bot,
+                                                   callback->message->chat->id,
+                                                   callback->message->messageId,
+                                                   button_data, *postgres_);
+                      break;
+                    case ButtonType::kCancel:
+                      ProcessCancelCommand(bot, callback->message->chat->id,
+                                           callback->message->messageId);
+                      break;
+                  }
+                } catch (const std::exception& exc) {
+                  LOG_ERROR() << "Failed to process callback query: " << exc;
+                }
+              } else {
+                LOG_INFO() << "No data in callback, skip";
+              }
+            }
+          } else {
+            LOG_INFO() << "No message in callback, skip";
+          }
+          bot.getApi().answerCallbackQuery(callback->id);
+        });
 
     try {
       LOG_DEBUG() << "Bot username: " << bot.getApi().getMe()->username;
@@ -246,7 +467,10 @@ void Bot::Run() {
             if (consumer_.Pop(request, userver::engine::Deadline::FromDuration(
                                            std::chrono::milliseconds(1)))) {
               UINVARIANT(request, "request is null");
-              bot.getApi().sendMessage(chat_id_, request->text);
+              bot.getApi().sendMessage(
+                  chat_id_, request->text, false /*disableWebPagePreview*/,
+                  0 /*replyToMessageId*/,
+                  MakeReplyMarkup(std::move(request->keyboard)));
             } else {
               // the queue is empty and there are no more live producers
               return;
@@ -256,22 +480,35 @@ void Bot::Run() {
         consumer_task.Get();
       }
     } catch (std::exception& e) {
-      LOG_ERROR() << "error: " << e.what();
+      LOG_ERROR() << "error: " << e;
     }
   }
 }
 
-void Bot::SendMessage(const std::string& text) {
+void Bot::SendMessage(const std::string& text) const {
+  SendSendMessageRequest(
+      SendMessageRequest{.text = text, .keyboard = std::nullopt});
+}
+
+void Bot::SendMessageWithKeyboard(
+    const std::string& text,
+    const std::vector<std::vector<Button>>& button_rows) const {
+  SendSendMessageRequest(
+      SendMessageRequest{.text = text, .keyboard = button_rows});
+}
+
+void Bot::SendSendMessageRequest(Bot::SendMessageRequest&& request) const {
   auto producer = queue_->GetProducer();
-  auto producer_task = userver::utils::Async("producer", [&text, &producer] {
-    auto request =
-        std::make_unique<SendMessageRequest>(SendMessageRequest{.text = text});
-    if (!producer.Push(std::move(request),
-                       userver::engine::Deadline::FromDuration(
-                           std::chrono::seconds(60)))) {
-      throw std::runtime_error("Producer push timeout");
-    }
-  });
+  auto producer_task =
+      userver::utils::Async("producer", [&producer, &request]() mutable {
+        auto request_ptr =
+            std::make_unique<SendMessageRequest>(std::move(request));
+        if (!producer.Push(std::move(request_ptr),
+                           userver::engine::Deadline::FromDuration(
+                               std::chrono::seconds(60)))) {
+          throw std::runtime_error("Producer push timeout");
+        }
+      });
   producer_task.Get();
 }
 
