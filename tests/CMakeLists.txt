@@ -16,6 +16,7 @@ userver_testsuite_add(
   SERVICE_TARGET telegram_bot
   REQUIREMENTS ${CMAKE_CURRENT_SOURCE_DIR}/requirements.txt
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  PYTHONPATH ${CMAKE_CURRENT_BINARY_DIR}/../src/messages
   PYTEST_ARGS
   --service-config=${CMAKE_SOURCE_DIR}/configs/static_config.yaml
   --service-binary=${CMAKE_BINARY_DIR}/telegram_bot

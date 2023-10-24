@@ -6,7 +6,7 @@ include(GNUInstallDirs)
 
 add_subdirectory(third_party/userver)
 add_subdirectory(third_party/tgbot-cpp)
-
+add_subdirectory(src/messages)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -18,8 +18,13 @@ add_library(${PROJECT_NAME}_objs OBJECT
     src/birthday_notificator.cpp
     src/bot.hpp
     src/bot.cpp
+    src/button.hpp
+    src/button.cpp
+    ${PROTO_HDRS}
+    ${PROTO_SRCS}
 )
-target_link_libraries(${PROJECT_NAME}_objs PUBLIC userver-core userver-postgresql TgBot)
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/src/messages)
+target_link_libraries(${PROJECT_NAME}_objs PUBLIC userver-core userver-postgresql TgBot messages)
 
 
 # The Service

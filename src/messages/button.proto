@@ -1,0 +1,9 @@
+syntax = "proto2";
+
+package telegram_bot.proto;
+
+message ButtonData {
+  optional int32 button_type = 1;
+  optional int32 context = 2;
+  optional int32 bd_id = 3;
+}
