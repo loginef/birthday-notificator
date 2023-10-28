@@ -53,7 +53,7 @@ jobs:
 
           - name: Clang version
             run: |
-                clang --version
+                clang-15 --version
 
           - name: Run ${{matrix.make}}
             run: |
