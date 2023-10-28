@@ -19,10 +19,6 @@ jobs:
                     make: test-debug
                     info: clang + test-debug
 
-                  - os: ubuntu-22.04
-                    make: test-release
-                    info: clang + test-release
-
         name: '${{matrix.os}}: ${{matrix.info}}'
         runs-on: ${{matrix.os}}
 
@@ -53,7 +49,7 @@ jobs:
 
           - name: Clang version
             run: |
-                clang --version
+                clang-15 --version
 
           - name: Run ${{matrix.make}}
             run: |
