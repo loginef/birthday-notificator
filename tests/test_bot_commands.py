@@ -14,26 +14,6 @@ _TELEGRAM_TOKEN = 'fake_token'
 
 @pytest.mark.now(_NOW.isoformat())
 async def test_unknown(service_client, mockserver):
-    @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/getMe')
-    def _handler_get_me(request):
-        return {
-            'ok': True,
-            'result': {
-                'id': 11111,
-                'is_bot': True,
-                'first_name': 'Name',
-                'last_name': 'Name',
-                'username': 'bot_username',
-            }
-        }
-
-    @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/deleteWebhook')
-    def _handler_delete_webhook(request):
-        return {
-            'ok': True,
-            'result': True,
-        }
-
     @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/getUpdates')
     def _handler_get_updates(request):
         return {
@@ -79,26 +59,6 @@ async def test_unknown(service_client, mockserver):
 
 @pytest.mark.now(_NOW.isoformat())
 async def test_start(service_client, mockserver):
-    @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/getMe')
-    def _handler_get_me(request):
-        return {
-            'ok': True,
-            'result': {
-                'id': 11111,
-                'is_bot': True,
-                'first_name': 'Name',
-                'last_name': 'Name',
-                'username': 'bot_username',
-            }
-        }
-
-    @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/deleteWebhook')
-    def _handler_delete_webhook(request):
-        return {
-            'ok': True,
-            'result': True,
-        }
-
     @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/getUpdates')
     def _handler_get_updates(request):
         return {
@@ -144,26 +104,6 @@ async def test_start(service_client, mockserver):
 
 @pytest.mark.now(_NOW.isoformat())
 async def test_chat_id(service_client, mockserver):
-    @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/getMe')
-    def _handler_get_me(request):
-        return {
-            'ok': True,
-            'result': {
-                'id': 11111,
-                'is_bot': True,
-                'first_name': 'Name',
-                'last_name': 'Name',
-                'username': 'bot_username',
-            }
-        }
-
-    @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/deleteWebhook')
-    def _handler_delete_webhook(request):
-        return {
-            'ok': True,
-            'result': True,
-        }
-
     @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/getUpdates')
     def _handler_get_updates(request):
         return {

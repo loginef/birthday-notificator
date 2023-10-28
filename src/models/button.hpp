@@ -3,7 +3,9 @@
 #include <optional>
 #include <string>
 
-namespace telegram_bot {
+#include <models/birthday.hpp>
+
+namespace telegram_bot::models {
 
 enum class ButtonType : int32_t {
   kEditBirthday = 0,
@@ -18,14 +20,14 @@ enum class ButtonContext : int32_t {
 struct ButtonData {
   ButtonType type;
   ButtonContext context;
-  std::optional<int32_t> birthday_id;
+  std::optional<BirthdayId> birthday_id;
 
   static ButtonData FromBase64Serialized(const std::string& data);
 };
 
 struct Button {
   Button(std::string title_, ButtonType type, ButtonContext context,
-         std::optional<int32_t> birthday_id);
+         std::optional<BirthdayId> birthday_id);
 
   std::string title;
   ButtonData data;
@@ -39,4 +41,4 @@ struct SerializedButton {
   std::string data;
 };
 
-}  // namespace telegram_bot
+}  // namespace telegram_bot::models
