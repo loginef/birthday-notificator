@@ -9,8 +9,8 @@
 #include <userver/testsuite/testsuite_support.hpp>
 #include <userver/utils/daemon_run.hpp>
 
-#include "birthday_notificator.hpp"
-#include "bot.hpp"
+#include <components/birthday_notificator.hpp>
+#include <components/bot/component.hpp>
 
 int main(int argc, char* argv[]) {
   auto component_list =
@@ -23,8 +23,8 @@ int main(int argc, char* argv[]) {
           .Append<userver::components::Secdist>()
           .Append<userver::components::DefaultSecdistProvider>()
           .Append<userver::components::Postgres>("postgres-db")
-          .Append<telegram_bot::Bot>()
-          .Append<telegram_bot::BirthdayNotificator>();
+          .Append<telegram_bot::components::bot::Component>()
+          .Append<telegram_bot::components::BirthdayNotificator>();
 
   return userver::utils::DaemonMain(argc, argv, component_list);
 }

@@ -68,33 +68,6 @@ def fetch_birthdays(pgsql):
 
 @pytest.mark.now(_NOW.isoformat())
 async def test_notification(service_client, pgsql, testpoint, mockserver):
-    @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/getMe')
-    def _handler_get_me(request):
-        return {
-            'ok': True,
-            'result': {
-                'id': 11111,
-                'is_bot': True,
-                'first_name': 'Name',
-                'last_name': 'Name',
-                'username': 'bot_username',
-            }
-        }
-
-    @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/deleteWebhook')
-    def _handler_delete_webhook(request):
-        return {
-            'ok': True,
-            'result': True,
-        }
-
-    @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/getUpdates')
-    def _handler_get_updates(request):
-        return {
-            'ok': True,
-            'result': [],
-        }
-
     @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/sendMessage')
     def handler_send_message(request):
         return {

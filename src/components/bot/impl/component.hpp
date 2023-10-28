@@ -1,0 +1,70 @@
+#pragma once
+
+#include <optional>
+#include <string>
+#include <unordered_set>
+#include <vector>
+
+#include <userver/components/component_fwd.hpp>
+#include <userver/engine/task/task_with_result.hpp>
+#include <userver/storages/postgres/cluster.hpp>
+
+#include <tgbot/tgbot.h>
+
+#include <components/bot/impl/http_client.hpp>
+#include <models/button.hpp>
+
+namespace telegram_bot::components::bot::impl {
+
+class Component final {
+ public:
+  Component(const userver::components::ComponentConfig&,
+            const userver::components::ComponentContext&);
+
+  static constexpr const std::string kName = "telegram-bot";
+
+  void SendMessage(const std::string& text) const;
+  void SendMessageWithKeyboard(
+      const std::string& text,
+      const std::vector<std::vector<models::Button>>& button_rows) const;
+  void UpdateMessageWithKeyboard(
+      int32_t chat_id, int32_t message_id, const std::string& text,
+      const std::vector<std::vector<models::Button>>& button_rows);
+
+ private:
+  struct SendMessageRequest {
+    std::string text;
+    std::optional<std::vector<std::vector<models::Button>>> keyboard;
+  };
+
+  TelegramApiHttpClient telegram_client_;
+  std::string telegram_token_;
+  int64_t chat_id_{};
+  std::string telegram_host_;
+  TgBot::Bot bot_;
+  userver::storages::postgres::ClusterPtr postgres_;
+  std::unordered_set<std::string> bot_commands_;
+  userver::engine::TaskWithResult<void> task_;
+
+ private:
+  void Start();
+  void Run();
+  void SendMessageImpl(const std::string& text,
+                       std::optional<std::vector<std::vector<models::Button>>>
+                           button_rows) const;
+  void RegisterCommand(const std::string& command,
+                       void (Component::*handler)(TgBot::Message::Ptr));
+
+  void OnStartCommand(TgBot::Message::Ptr message);
+  void OnChatIdCommand(TgBot::Message::Ptr message);
+  void OnNextBirthdaysCommand(TgBot::Message::Ptr message);
+  void OnNextBirthdaysNewCommand(TgBot::Message::Ptr message);
+  void OnEditBirthdayButton(int32_t chat_id, int32_t message_id,
+                            const models::ButtonData& button_data);
+  void OnDeleteBirthdayButton(int32_t chat_id, int32_t message_id,
+                              const models::ButtonData& button_data);
+  void OnCancelButton(int32_t chat_id, int32_t message_id);
+  void OnCallbackQuery(const TgBot::CallbackQuery::Ptr callback);
+};
+
+}  // namespace telegram_bot::components::bot::impl

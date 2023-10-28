@@ -23,28 +23,13 @@
 #include <userver/utils/datetime.hpp>
 #include <userver/yaml_config/merge_schemas.hpp>
 
-namespace telegram_bot {
+#include <db/birthdays.hpp>
+
+namespace telegram_bot::components {
 
 namespace {
 
 const std::chrono::days kForgottenBirthdaySearchDistance(3);
-
-const std::string kFetchBirthdays = R"(
-SELECT
-  birthdays.id,
-  birthdays.person,
-  birthdays.m,
-  birthdays.d,
-  birthdays.notification_enabled,
-  birthdays.last_notification_time
-FROM birthday.birthdays
-)";
-
-const std::string kUpdateBirthday = R"(
-UPDATE birthday.birthdays
-SET last_notification_time = $1
-WHERE birthdays.id = $2
-)";
 
 template <typename T>
 userver::formats::json::ValueBuilder SerializeArray(const T& array) {
@@ -88,7 +73,7 @@ BirthdayNotificator::BirthdayNotificator(
       postgres_(
           context.FindComponent<userver::components::Postgres>("postgres-db")
               .GetCluster()),
-      bot_(context.FindComponent<Bot>()) {
+      bot_(context.FindComponent<bot::Component>()) {
   const std::string timezone_name =
       config["notification_timezone"].As<std::string>();
   if (!cctz::load_time_zone(timezone_name, &notification_timezone_)) {
@@ -142,14 +127,9 @@ void BirthdayNotificator::RunIteration() {
     return;
   }
 
-  const auto rows =
-      postgres_
-          ->Execute(userver::storages::postgres::ClusterHostType::kMaster,
-                    kFetchBirthdays)
-          .AsContainer<std::vector<impl::BirthdayRow>>(
-              userver::storages::postgres::kRowTag);
+  const auto rows = db::FetchBirthdays(*postgres_);
   const auto birthdays_to_notify =
-      FindBirthdaysToNotify(rows, notification_timezone_, local_day);
+      impl::FindBirthdaysToNotify(rows, notification_timezone_, local_day);
 
   TESTPOINT("birthday-notificator", [&birthdays_to_notify]() {
     userver::formats::json::ValueBuilder builder;
@@ -177,17 +157,15 @@ void BirthdayNotificator::RunIteration() {
 
   bot_.SendMessage(fmt::format("{}", fmt::join(lines, "\n")));
 
-  for (const int id : birthdays_to_notify.ids) {
-    postgres_->Execute(userver::storages::postgres::ClusterHostType::kMaster,
-                       kUpdateBirthday,
-                       userver::storages::postgres::TimePointTz{now}, id);
+  for (const auto id : birthdays_to_notify.ids) {
+    db::UpdateBirthdayLastNotificationTime(now, id, *postgres_);
   }
 }
 
 namespace impl {
 
 BirthdaysToNotify FindBirthdaysToNotify(
-    const std::vector<BirthdayRow>& rows,
+    const std::vector<models::Birthday>& rows,
     const cctz::time_zone& notification_timezone,
     const cctz::civil_day& local_day) {
   const auto farthest_forgotten_day =
@@ -202,12 +180,13 @@ BirthdaysToNotify FindBirthdaysToNotify(
     const auto birthday_year =
         cctz::civil_year(local_day) -
         (std::tuple(row.m, row.d) <=
-                 std::tuple(local_day.month(), local_day.day())
+                 std::tuple(models::BirthdayMonth{local_day.month()},
+                            models::BirthdayDay{local_day.day()})
              ? 0
              : 1);
-    const auto birthday =
-        cctz::civil_day(cctz::civil_month(birthday_year) + row.m - 1) + row.d -
-        1;
+    const auto birthday = cctz::civil_day(cctz::civil_month(birthday_year) +
+                                          row.m.GetUnderlying() - 1) +
+                          row.d.GetUnderlying() - 1;
     if (birthday < farthest_forgotten_day) {
       LOG_DEBUG() << "Skip too old birthday";
       continue;
@@ -236,4 +215,4 @@ BirthdaysToNotify FindBirthdaysToNotify(
 
 }  // namespace impl
 
-}  // namespace telegram_bot
+}  // namespace telegram_bot::components

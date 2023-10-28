@@ -5,7 +5,7 @@
 
 #include <button.pb.h>
 
-namespace telegram_bot {
+namespace telegram_bot::models {
 
 namespace {
 
@@ -14,7 +14,7 @@ std::string ToProto(const ButtonData& button_data) {
   data.set_button_type(static_cast<int32_t>(button_data.type));
   data.set_context(static_cast<int32_t>(button_data.context));
   if (button_data.birthday_id.has_value()) {
-    data.set_bd_id(*button_data.birthday_id);
+    data.set_bd_id(button_data.birthday_id->GetUnderlying());
   }
 
   std::string result;
@@ -25,7 +25,7 @@ std::string ToProto(const ButtonData& button_data) {
 }  // namespace
 
 Button::Button(std::string title_, ButtonType type, ButtonContext context,
-               std::optional<int32_t> birthday_id)
+               std::optional<BirthdayId> birthday_id)
     : title{std::move(title_)}, data{type, context, birthday_id} {}
 
 SerializedButton::SerializedButton(std::string title_, std::string data_)
@@ -60,10 +60,10 @@ ButtonData ButtonData::FromBase64Serialized(const std::string& data) {
   }
 
   if (parsed_data.has_bd_id()) {
-    result.birthday_id = parsed_data.bd_id();
+    result.birthday_id = BirthdayId{parsed_data.bd_id()};
   }
 
   return result;
 }
 
-}  // namespace telegram_bot
+}  // namespace telegram_bot::models

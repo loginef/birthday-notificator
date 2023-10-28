@@ -307,26 +307,6 @@ async def test_next_birthdays(
     # to update mocked time
     await service_client.invalidate_caches()
 
-    @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/getMe')
-    def _handler_get_me(request):
-        return {
-            'ok': True,
-            'result': {
-                'id': 11111,
-                'is_bot': True,
-                'first_name': 'Name',
-                'last_name': 'Name',
-                'username': 'bot_username',
-            }
-        }
-
-    @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/deleteWebhook')
-    def _handler_delete_webhook(request):
-        return {
-            'ok': True,
-            'result': True,
-        }
-
     @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/getUpdates')
     def _handler_get_updates(request):
         return {
@@ -488,26 +468,6 @@ async def test_edit_birthday(
     # to update mocked time
     await service_client.invalidate_caches()
 
-    @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/getMe')
-    def _handler_get_me(request):
-        return {
-            'ok': True,
-            'result': {
-                'id': 11111,
-                'is_bot': True,
-                'first_name': 'Name',
-                'last_name': 'Name',
-                'username': 'bot_username',
-            }
-        }
-
-    @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/deleteWebhook')
-    def _handler_delete_webhook(request):
-        return {
-            'ok': True,
-            'result': True,
-        }
-
     @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/getUpdates')
     def _handler_get_updates(request):
         result = {
@@ -531,15 +491,24 @@ async def test_edit_birthday(
                 },
                 'text': 'Text',
             }
-        return {
-            'ok': True,
-            'result': [
-                {
-                    'update_id': 1,
-                    'callback_query': result,
-                }
-            ],
-        }
+
+        # return new updates only once
+        # TODO account request params
+        if _handler_get_updates.times_called < 2:
+            return {
+                'ok': True,
+                'result': [
+                    {
+                        'update_id': 1,
+                        'callback_query': result,
+                    }
+                ],
+            }
+        else:
+            return {
+                'ok': True,
+                'result': [],
+            }
 
     @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/answerCallbackQuery')
     def handler_answer_callback(request):
@@ -718,26 +687,6 @@ async def test_delete_birthday(
     # to update mocked time
     await service_client.invalidate_caches()
 
-    @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/getMe')
-    def _handler_get_me(request):
-        return {
-            'ok': True,
-            'result': {
-                'id': 11111,
-                'is_bot': True,
-                'first_name': 'Name',
-                'last_name': 'Name',
-                'username': 'bot_username',
-            }
-        }
-
-    @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/deleteWebhook')
-    def _handler_delete_webhook(request):
-        return {
-            'ok': True,
-            'result': True,
-        }
-
     @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/getUpdates')
     def _handler_get_updates(request):
         result = {
@@ -761,15 +710,22 @@ async def test_delete_birthday(
                 },
                 'text': 'Text',
             }
-        return {
-            'ok': True,
-            'result': [
-                {
-                    'update_id': 1,
-                    'callback_query': result,
-                }
-            ],
-        }
+
+        if _handler_get_updates.times_called < 2:
+            return {
+                'ok': True,
+                'result': [
+                    {
+                        'update_id': 1,
+                        'callback_query': result,
+                    }
+                ],
+            }
+        else:
+            return {
+                'ok': True,
+                'result': [],
+            }
 
     @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/answerCallbackQuery')
     def handler_answer_callback(request):
@@ -895,26 +851,6 @@ async def test_cancel(
     # to update mocked time
     await service_client.invalidate_caches()
 
-    @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/getMe')
-    def _handler_get_me(request):
-        return {
-            'ok': True,
-            'result': {
-                'id': 11111,
-                'is_bot': True,
-                'first_name': 'Name',
-                'last_name': 'Name',
-                'username': 'bot_username',
-            }
-        }
-
-    @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/deleteWebhook')
-    def _handler_delete_webhook(request):
-        return {
-            'ok': True,
-            'result': True,
-        }
-
     @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/getUpdates')
     def _handler_get_updates(request):
         result = {
@@ -938,15 +874,22 @@ async def test_cancel(
                 },
                 'text': 'Text',
             }
-        return {
-            'ok': True,
-            'result': [
-                {
-                    'update_id': 1,
-                    'callback_query': result,
-                }
-            ],
-        }
+
+        if _handler_get_updates.times_called < 2:
+            return {
+                'ok': True,
+                'result': [
+                    {
+                        'update_id': 1,
+                        'callback_query': result,
+                    }
+                ],
+            }
+        else:
+            return {
+                'ok': True,
+                'result': [],
+            }
 
     @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/answerCallbackQuery')
     def handler_answer_callback(request):

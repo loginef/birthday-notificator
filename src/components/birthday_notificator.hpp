@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <string>
 #include <vector>
 
@@ -10,9 +11,9 @@
 #include <userver/storages/postgres/postgres_fwd.hpp>
 #include <userver/utils/time_of_day.hpp>
 
-#include "bot.hpp"
+#include <components/bot/component.hpp>
 
-namespace telegram_bot {
+namespace telegram_bot::components {
 
 class BirthdayNotificator final
     : public userver::storages::postgres::DistLockComponentBase {
@@ -28,7 +29,7 @@ class BirthdayNotificator final
 
  private:
   userver::storages::postgres::ClusterPtr postgres_;
-  Bot& bot_;
+  bot::Component& bot_;
   cctz::time_zone notification_timezone_;
   userver::utils::datetime::TimeOfDay<std::chrono::minutes>
       notification_time_of_day_;
@@ -42,25 +43,16 @@ class BirthdayNotificator final
 namespace impl {
 
 struct BirthdaysToNotify {
-  std::vector<int> ids;
+  std::vector<models::BirthdayId> ids;
   std::vector<std::string> celebrate_today;
   std::vector<std::string> forgotten;
 };
 
-struct BirthdayRow {
-  int id{};
-  std::string person;
-  int m{};
-  int d{};
-  bool notification_enabled{};
-  std::optional<std::chrono::system_clock::time_point> last_notification_time;
-};
-
 BirthdaysToNotify FindBirthdaysToNotify(
-    const std::vector<BirthdayRow>& rows,
+    const std::vector<models::Birthday>& rows,
     const cctz::time_zone& notification_timezone,
     const cctz::civil_day& local_day);
 
 }  // namespace impl
 
-}  // namespace telegram_bot
+}  // namespace telegram_bot::components

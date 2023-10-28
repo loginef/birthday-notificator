@@ -14,16 +14,27 @@ set(CMAKE_CXX_FLAGS "-std=c++20")
 
 # Common sources
 add_library(${PROJECT_NAME}_objs OBJECT
-    src/birthday_notificator.hpp
-    src/birthday_notificator.cpp
-    src/bot.hpp
-    src/bot.cpp
-    src/button.hpp
-    src/button.cpp
+    src/components/birthday_notificator.hpp
+    src/components/birthday_notificator.cpp
+    src/components/bot/impl/component.hpp
+    src/components/bot/impl/component.cpp
+    src/components/bot/impl/http_client.hpp
+    src/components/bot/impl/http_client.cpp
+    src/components/bot/impl/reply_markup.hpp
+    src/components/bot/impl/reply_markup.cpp
+    src/components/bot/component.hpp
+    src/components/bot/component.cpp
+    src/models/birthday.hpp
+    src/models/button.hpp
+    src/models/button.cpp
+    src/models/time_point.hpp
+    src/db/birthdays.hpp
+    src/db/birthdays.cpp
     ${PROTO_HDRS}
     ${PROTO_SRCS}
 )
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/src/messages)
+target_include_directories(${PROJECT_NAME}_objs PUBLIC src)
 target_link_libraries(${PROJECT_NAME}_objs PUBLIC userver-core userver-postgresql TgBot messages)
 
 
@@ -34,7 +45,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}_objs)
 
 # Unit Tests
 add_executable(${PROJECT_NAME}_unittest
-    src/birthday_notificator_test.cpp
+    src/components/birthday_notificator_test.cpp
 )
 target_link_libraries(${PROJECT_NAME}_unittest PRIVATE ${PROJECT_NAME}_objs userver-utest)
 add_google_tests(${PROJECT_NAME}_unittest)
