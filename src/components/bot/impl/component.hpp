@@ -21,7 +21,7 @@ class Component final {
   Component(const userver::components::ComponentConfig&,
             const userver::components::ComponentContext&);
 
-  static constexpr const std::string kName = "telegram-bot";
+  static constexpr const auto kName = "telegram-bot";
 
   void SendMessage(const std::string& text) const;
   void SendMessageWithKeyboard(
