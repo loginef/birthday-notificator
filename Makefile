@@ -39,8 +39,8 @@ build-debug build-release: build-%: cmake-%
 test-debug test-release: test-%: build-%
 	@cmake --build build_$* -j $(NPROCS) --target telegram_bot_unittest
 	# @cmake --build build_$* -j $(NPROCS) --target telegram_bot_benchmark
-	@cd build_$* && ((test -t 1 && GTEST_COLOR=1 PYTEST_ADDOPTS="--color=yes" ctest -V) || ctest -V)
-	# @cd build_$* && (test -t 1 && GTEST_COLOR=1 PYTEST_ADDOPTS="--color=yes" ctest -V)
+	# @cd build_$* && ((test -t 1 && GTEST_COLOR=1 PYTEST_ADDOPTS="--color=yes" ctest -V) || ctest -V)
+	@cd build_$* && (test -t 1 && GTEST_COLOR=1 PYTEST_ADDOPTS="--color=yes" ctest -V)
 	@pep8 tests
 
 # Start the service (via testsuite service runner)
