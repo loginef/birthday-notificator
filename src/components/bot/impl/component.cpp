@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <exception>
+#include <regex>
 #include <tuple>
 
 #include <cctz/time_zone.h>
@@ -173,26 +174,60 @@ void Component::Start() {
 }
 
 void Component::OnStartCommand(TgBot::Message::Ptr message) {
-  bot_.getApi().sendMessage(message->chat->id, "Hi!");
+  SendMessage(message->chat->id, "Hi!");
 }
 
 void Component::OnChatIdCommand(TgBot::Message::Ptr message) {
-  bot_.getApi().sendMessage(
-      message->chat->id, fmt::format("Your chat id is {}", message->chat->id));
+  SendMessage(message->chat->id,
+              fmt::format("Your chat id is {}", message->chat->id));
 }
 
 void Component::OnNextBirthdaysCommand(TgBot::Message::Ptr message) {
-  bot_.getApi().sendMessage(
-      message->chat->id,
-      GetNextBirthdaysMessage(message->chat->id, chat_id_, *postgres_));
+  SendMessage(message->chat->id,
+              GetNextBirthdaysMessage(message->chat->id, chat_id_, *postgres_));
 }
 
 void Component::OnNextBirthdaysNewCommand(TgBot::Message::Ptr message) {
   auto response =
       GetNextBirthdaysMessageNew(message->chat->id, chat_id_, *postgres_);
-  bot_.getApi().sendMessage(
-      message->chat->id, response.text, false /*disableWebPagePreview*/,
-      0 /*replyToMessageId*/, MakeReplyMarkup(std::move(response.keyboard)));
+  if (response.keyboard.has_value()) {
+    SendMessageWithKeyboard(message->chat->id, response.text,
+                            *response.keyboard);
+  } else {
+    SendMessage(message->chat->id, response.text);
+  }
+}
+
+void Component::OnAddBirthdayCommand(TgBot::Message::Ptr message) {
+  if (message->chat->id != chat_id_) {
+    SendMessage(message->chat->id, "Not ready yet");
+    return;
+  }
+
+  std::regex re(R"(^/add_birthday[^\s]*\s+(\d{2})\.(\d{2})(.(\d{4}))?\s+(.*))");
+  std::smatch match;
+  if (!std::regex_match(message->text, match, re)) {
+    SendMessage("Usage: /add_birthday DD.MM[.YYYY] Person Name");
+    return;
+  }
+
+  UINVARIANT(match.size() == 6, "unexpected match size, check regexp");
+  models::BirthdayDay d{std::stoi(match[1])};
+  models::BirthdayMonth m{std::stoi(match[2])};
+  std::optional<models::BirthdayYear> y{};
+  if (match[4].matched) {
+    // skip dot, which is index 4
+    y = models::BirthdayYear{std::stoi(match[4])};
+  }
+  std::string person = match[5];
+  if (person.size() > 128) {
+    SendMessage("Too long name, provide up to 128 characters please");
+    return;
+  }
+
+  db::InsertBirthday(m, d, y, person, *postgres_);
+  SendMessage(
+      fmt::format("Inserted the birthday of {} on {:02}.{:02}", person, d, m));
 }
 
 void Component::OnEditBirthdayButton(const int32_t chat_id,
@@ -287,14 +322,7 @@ void Component::Run() {
   RegisterCommand("chat_id", &Component::OnChatIdCommand);
   RegisterCommand("next_birthdays", &Component::OnNextBirthdaysCommand);
   RegisterCommand("next_birthdays_new", &Component::OnNextBirthdaysNewCommand);
-
-  bot_.getEvents().onAnyMessage([&](TgBot::Message::Ptr message) {
-    if (bot_commands_.contains(message->text)) {
-      return;
-    }
-
-    bot_.getApi().sendMessage(message->chat->id, "Unknown command");
-  });
+  RegisterCommand("add_birthday", &Component::OnAddBirthdayCommand);
 
   bot_.getEvents().onCallbackQuery(
       [this](const TgBot::CallbackQuery::Ptr callback) {
@@ -312,20 +340,31 @@ void Component::Run() {
   }
 }
 
+void Component::SendMessage(const int32_t chat_id,
+                            const std::string& text) const {
+  SendMessageImpl(chat_id, text, std::nullopt);
+}
+
 void Component::SendMessage(const std::string& text) const {
-  SendMessageImpl(text, std::nullopt);
+  SendMessageImpl(chat_id_, text, std::nullopt);
 }
 
 void Component::SendMessageWithKeyboard(
     const std::string& text,
     const std::vector<std::vector<models::Button>>& button_rows) const {
-  SendMessageImpl(text, button_rows);
+  SendMessageImpl(chat_id_, text, button_rows);
+}
+
+void Component::SendMessageWithKeyboard(
+    const int32_t chat_id, const std::string& text,
+    const std::vector<std::vector<models::Button>>& button_rows) const {
+  SendMessageImpl(chat_id, text, button_rows);
 }
 
 void Component::SendMessageImpl(
-    const std::string& text,
+    const int32_t chat_id, const std::string& text,
     std::optional<std::vector<std::vector<models::Button>>> button_rows) const {
-  bot_.getApi().sendMessage(chat_id_, text, false /*disableWebPagePreview*/,
+  bot_.getApi().sendMessage(chat_id, text, false /*disableWebPagePreview*/,
                             0 /*replyToMessageId*/,
                             MakeReplyMarkup(std::move(button_rows)));
 }
