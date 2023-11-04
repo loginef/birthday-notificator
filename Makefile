@@ -4,6 +4,7 @@ CMAKE_RELEASE_FLAGS ?=
 CMAKE_OS_FLAGS ?= -DUSERVER_FEATURE_CRYPTOPP_BLAKE2=0 -DUSERVER_FEATURE_REDIS_HI_MALLOC=1
 NPROCS ?= $(shell nproc)
 CLANG_FORMAT ?= clang-format
+DOCKER_COMPOSE ?= docker-compose
 
 # NOTE: use Makefile.local for customization
 -include Makefile.local
@@ -56,7 +57,6 @@ clean-debug clean-release: clean-%:
 .PHONY: dist-clean
 dist-clean:
 	@rm -rf build_*
-	@rm -f ./configs/static_config.yaml
 	@rm -rf tests/__pycache__/
 	@rm -rf tests/.pytest_cache/
 	@rm -rf ./debian/telegram-bot
@@ -79,25 +79,25 @@ format:
 # Internal hidden targets that are used only in docker environment
 .PHONY: --in-docker-start-debug --in-docker-start-release
 --in-docker-start-debug --in-docker-start-release: --in-docker-start-%: install-%
-	@sed -i 's/config_vars.yaml/config_vars.docker.yaml/g' /home/user/.local/etc/telegram_bot/static_config.yaml
 	@psql 'postgresql://user:password@service-postgres:5432/telegram_bot_pg_birthday'
 	@/home/user/.local/bin/telegram_bot \
-		--config /home/user/.local/etc/telegram_bot/static_config.yaml
+		--config /home/user/.local/etc/telegram_bot/static_config.yaml \
+		--config_vars /home/user/.local/etc/pg_service_template/config_vars.docker.yaml
 
 # Build and run service in docker environment
 .PHONY: docker-start-service-debug docker-start-service-release
 docker-start-service-debug docker-start-service-release: docker-start-service-%:
-	@docker-compose run -p 8080:8080 --rm telegram_bot-container $(MAKE) -- --in-docker-start-$*
+	@$(DOCKER_COMPOSE) run -p 8080:8080 --rm telegram_bot-container make -- --in-docker-start-$*
 
 # Start specific target in docker environment
 .PHONY: docker-cmake-debug docker-build-debug docker-test-debug docker-clean-debug docker-install-debug docker-cmake-release docker-build-release docker-test-release docker-clean-release docker-install-release
 docker-cmake-debug docker-build-debug docker-test-debug docker-clean-debug docker-install-debug docker-cmake-release docker-build-release docker-test-release docker-clean-release docker-install-release: docker-%:
-	docker-compose run --rm telegram_bot-container $(MAKE) $*
+	$(DOCKER_COMPOSE) run --rm telegram_bot-container make $*
 
 # Stop docker container and cleanup data
 .PHONY: docker-clean-data
 docker-clean-data:
-	@docker-compose down -v
+	@$(DOCKER_COMPOSE) down -v
 	@rm -rf ./.pgdata
 	@rm -rf ./.cores
 

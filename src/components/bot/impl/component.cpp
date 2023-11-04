@@ -316,27 +316,33 @@ void Component::RegisterCommand(
 }
 
 void Component::Run() {
-  TgBot::TgLongPoll long_poll(bot_, 100, 1);
+  try {
+    TgBot::TgLongPoll long_poll(bot_, 100, 1);
 
-  RegisterCommand("start", &Component::OnStartCommand);
-  RegisterCommand("chat_id", &Component::OnChatIdCommand);
-  RegisterCommand("next_birthdays", &Component::OnNextBirthdaysCommand);
-  RegisterCommand("next_birthdays_new", &Component::OnNextBirthdaysNewCommand);
-  RegisterCommand("add_birthday", &Component::OnAddBirthdayCommand);
+    RegisterCommand("start", &Component::OnStartCommand);
+    RegisterCommand("chat_id", &Component::OnChatIdCommand);
+    RegisterCommand("next_birthdays", &Component::OnNextBirthdaysCommand);
+    RegisterCommand("next_birthdays_new",
+                    &Component::OnNextBirthdaysNewCommand);
+    RegisterCommand("add_birthday", &Component::OnAddBirthdayCommand);
 
-  bot_.getEvents().onCallbackQuery(
-      [this](const TgBot::CallbackQuery::Ptr callback) {
-        OnCallbackQuery(callback);
-      });
+    bot_.getEvents().onCallbackQuery(
+        [this](const TgBot::CallbackQuery::Ptr callback) {
+          OnCallbackQuery(callback);
+        });
 
-  while (!userver::engine::current_task::ShouldCancel()) {
-    try {
-      LOG_INFO() << "Long poll started";
-      long_poll.start();
-      LOG_INFO() << "Long poll finished";
-    } catch (std::exception& e) {
-      LOG_ERROR() << "error: " << e;
+    while (!userver::engine::current_task::ShouldCancel()) {
+      try {
+        LOG_INFO() << "Long poll started";
+        long_poll.start();
+        LOG_INFO() << "Long poll finished";
+      } catch (std::exception& e) {
+        LOG_ERROR() << "error: " << e;
+      }
     }
+  } catch (const std::exception& exc) {
+    LOG_ERROR() << "Unexpected exception " << exc;
+    throw;
   }
 }
 

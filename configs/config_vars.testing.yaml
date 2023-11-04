@@ -2,9 +2,7 @@ worker-threads: 4
 worker-fs-threads: 2
 logger-level: debug
 
-is_testing: true
-
-server-port: 8080
+is-testing: true
 
 secdist-path: /path/to/secdist.json
 notification_time_of_day: "10:00"

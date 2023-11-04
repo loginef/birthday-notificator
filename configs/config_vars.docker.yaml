@@ -2,11 +2,12 @@ worker-threads: 4
 worker-fs-threads: 2
 logger-level: debug
 
-is_testing: true
+is-testing: true
 
 server-port: 8080
 
 secdist-path: /home/user/.local/etc/telegram_bot/secdist.json
+
 notification_time_of_day: "10:00"
 notification_timezone: Europe/Moscow
 
