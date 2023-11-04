@@ -9,7 +9,6 @@ compile_commands.json
 .ccache/
 cmake-build-*
 Testing/
-configs/static_config.yaml
 debian/telegram-bot*
 debian/files
 debian/.debhelper

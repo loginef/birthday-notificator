@@ -35,7 +35,7 @@ add_library(${PROJECT_NAME}_objs OBJECT
 )
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/src/messages)
 target_include_directories(${PROJECT_NAME}_objs PUBLIC src)
-target_link_libraries(${PROJECT_NAME}_objs PUBLIC userver-core userver-postgresql TgBot messages)
+target_link_libraries(${PROJECT_NAME}_objs PUBLIC userver-postgresql TgBot messages)
 
 
 # The Service
@@ -59,7 +59,12 @@ add_google_tests(${PROJECT_NAME}_unittest)
 # add_google_benchmark_tests(${PROJECT_NAME}_benchmark)
 
 # Functional Tests
-add_subdirectory(tests)
+include(UserverTestsuite)
+
+userver_testsuite_add_simple(
+    REQUIREMENTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/requirements.txt"
+    PYTHONPATH "${CMAKE_CURRENT_BINARY_DIR}/src/messages"
+)
 
 if(DEFINED ENV{PREFIX})
 	message(STATUS "Set install prefix: $ENV{PREFIX}")
@@ -67,12 +72,7 @@ if(DEFINED ENV{PREFIX})
 	set(CMAKE_INSTALL_PREFIX ${PREFIX_PATH})
 endif()
 
-set(CONFIG_VAR_PATH ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_SYSCONFDIR}/${PROJECT_NAME}/config_vars.yaml)
-set(CONFIG_FALLBACK_PATH ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_SYSCONFDIR}/${PROJECT_NAME}/dynamic_config_fallback.json)
-
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/configs/static_config.yaml.in ${CMAKE_CURRENT_SOURCE_DIR}/configs/static_config.yaml)
-
-FILE(GLOB CONFIGS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/configs/*.yaml ${CMAKE_CURRENT_SOURCE_DIR}/configs/*.json)
+file(GLOB CONFIGS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/configs/*.yaml ${CMAKE_CURRENT_SOURCE_DIR}/configs/*.json)
 
 install(TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT ${PROJECT_NAME})
 install(FILES ${CONFIGS_FILES} DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/${PROJECT_NAME} COMPONENT ${PROJECT_NAME})
