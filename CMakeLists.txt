@@ -28,8 +28,11 @@ add_library(${PROJECT_NAME}_objs OBJECT
     src/models/button.hpp
     src/models/button.cpp
     src/models/time_point.hpp
+    src/models/user.hpp
     src/db/birthdays.hpp
     src/db/birthdays.cpp
+    src/db/users.hpp
+    src/db/users.cpp
     ${PROTO_HDRS}
     ${PROTO_SRCS}
 )

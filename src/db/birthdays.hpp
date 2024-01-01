@@ -9,8 +9,14 @@
 
 namespace telegram_bot::db {
 
-std::vector<models::Birthday> FetchBirthdays(
+std::vector<models::Birthday> FetchAllBirthdays(
     userver::storages::postgres::Cluster& postgres);
+
+std::vector<models::Birthday> FetchBirthdays(
+    models::UserId user_id, userver::storages::postgres::Cluster& postgres);
+
+bool IsOwnerOfBirthday(models::UserId user_id, models::BirthdayId birthday_id,
+                       userver::storages::postgres::Cluster& postgres);
 
 void DeleteBirthday(models::BirthdayId birthday_id,
                     userver::storages::postgres::Cluster& postgres);
@@ -21,7 +27,7 @@ void UpdateBirthdayLastNotificationTime(
 
 void InsertBirthday(models::BirthdayMonth m, models::BirthdayDay d,
                     std::optional<models::BirthdayYear> y,
-                    const std::string& person,
+                    const std::string& person, models::UserId user_id,
                     userver::storages::postgres::Cluster& postgres);
 
 }  // namespace telegram_bot::db

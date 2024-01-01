@@ -25,7 +25,8 @@ def fetch_birthdays(pgsql):
             m,
             d,
             notification_enabled,
-            last_notification_time
+            last_notification_time,
+            user_id
         FROM birthday.birthdays
         ORDER BY id
         """
@@ -38,11 +39,21 @@ def fetch_birthdays(pgsql):
             'day': row[3],
             'is_enabled': row[4],
             'last_notification_time': row[5],
+            'user_id': row[6],
         }
         for row in cursor
     ]
 
 
+@pytest.mark.pgsql(
+    'pg_birthday',
+    queries=[
+        """
+        INSERT INTO birthday.users(id, chat_id)
+        VALUES (1000, 100500), (1002, 100502)
+        """,
+    ],
+)
 @pytest.mark.parametrize(
     'sender_chat_id, message, expected_message, expected_birthday',
     [
@@ -57,11 +68,12 @@ def fetch_birthdays(pgsql):
                 'day': 1,
                 'is_enabled': True,
                 'last_notification_time': None,
+                'chat_id': 1000,
             },
             id='ok',
         ),
         pytest.param(
-            100500,
+            100502,
             '/add_birthday 01.02 KINIAEV Foma',
             'Inserted the birthday of KINIAEV Foma on 01.02',
             {
@@ -71,6 +83,7 @@ def fetch_birthdays(pgsql):
                 'day': 1,
                 'is_enabled': True,
                 'last_notification_time': None,
+                'chat_id': 1002,
             },
             id='without_year',
         ),
@@ -85,6 +98,7 @@ def fetch_birthdays(pgsql):
                 'day': 1,
                 'is_enabled': True,
                 'last_notification_time': None,
+                'chat_id': 1000,
             },
             id='with_bot_tag',
         ),
@@ -119,7 +133,7 @@ def fetch_birthdays(pgsql):
         pytest.param(
             100501,
             '/add_birthday 01.02.2003 KINIAEV Foma',
-            'Not ready yet',
+            'Not registered yet, try to /register',
             None,
             id='unauthorized',
         ),
@@ -134,6 +148,7 @@ def fetch_birthdays(pgsql):
                 'day': 1,
                 'is_enabled': True,
                 'last_notification_time': None,
+                'chat_id': 1000,
             },
             id='cyrillic',
         ),

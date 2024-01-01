@@ -10,5 +10,3 @@ secdist-path: /home/user/.local/etc/telegram_bot/secdist.json
 
 notification_time_of_day: "10:00"
 notification_timezone: Europe/Moscow
-
-chat_id: 100500

@@ -18,8 +18,9 @@ def insert_birthday(
     month: int,
     day: int,
     is_enabled: bool,
+    user_id: int,
     last_notification_time: Optional[dt.datetime] = None,
-    year: Optional[int] = None
+    year: Optional[int] = None,
 ):
     cursor = pgsql['pg_birthday'].cursor()
     cursor.execute(
@@ -30,11 +31,12 @@ def insert_birthday(
             m,
             d,
             notification_enabled,
-            last_notification_time
+            last_notification_time,
+            user_id
         )
-        VALUES (%s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         """,
-        (person, year, month, day, is_enabled, last_notification_time)
+        (person, year, month, day, is_enabled, last_notification_time, user_id)
     )
 
 
@@ -48,7 +50,8 @@ def fetch_birthdays(pgsql):
             m,
             d,
             notification_enabled,
-            last_notification_time
+            last_notification_time,
+            user_id
         FROM birthday.birthdays
         ORDER BY id
         """
@@ -61,11 +64,21 @@ def fetch_birthdays(pgsql):
             'day': row[3],
             'is_enabled': row[4],
             'last_notification_time': row[5],
+            'user_id': row[6],
         }
         for row in cursor
     ]
 
 
+@pytest.mark.pgsql(
+    'pg_birthday',
+    queries=[
+        """
+        INSERT INTO birthday.users(id, chat_id)
+        VALUES (1000, 100500), (1001, 100501), (1002, 100502)
+        """,
+    ],
+)
 @pytest.mark.now(_NOW.isoformat())
 async def test_notification(service_client, pgsql, testpoint, mockserver):
     @mockserver.json_handler(f'/bot{_TELEGRAM_TOKEN}/sendMessage')
@@ -90,6 +103,7 @@ async def test_notification(service_client, pgsql, testpoint, mockserver):
         month=3,
         day=15,
         is_enabled=True,
+        user_id=1000,
         last_notification_time=_NOW - dt.timedelta(days=365),
         year=1960,
     )
@@ -99,6 +113,7 @@ async def test_notification(service_client, pgsql, testpoint, mockserver):
         month=3,
         day=15,
         is_enabled=True,
+        user_id=1000,
     )
     insert_birthday(
         pgsql,
@@ -106,6 +121,7 @@ async def test_notification(service_client, pgsql, testpoint, mockserver):
         month=3,
         day=15,
         is_enabled=False,
+        user_id=1000,
     )
     insert_birthday(
         pgsql,
@@ -113,6 +129,23 @@ async def test_notification(service_client, pgsql, testpoint, mockserver):
         month=3,
         day=14,
         is_enabled=True,
+        user_id=1000,
+    )
+    insert_birthday(
+        pgsql,
+        person='person5',
+        month=3,
+        day=15,
+        is_enabled=True,
+        user_id=1002,
+    )
+    insert_birthday(
+        pgsql,
+        person='person6',
+        month=3,
+        day=14,
+        is_enabled=True,
+        user_id=1002,
     )
 
     @testpoint('birthday-notificator')
@@ -124,18 +157,39 @@ async def test_notification(service_client, pgsql, testpoint, mockserver):
     assert worker_finished.has_calls
     request = worker_finished.next_call()['data']
     assert request == {
-        'forgotten': ['person4 on 14.03'],
-        'celebrate_today': ['person1', 'person2'],
+        '1000': {
+            'forgotten': ['person4 on 14.03'],
+            'celebrate_today': ['person1', 'person2'],
+        },
+        '1002': {
+            'forgotten': ['person6 on 14.03'],
+            'celebrate_today': ['person5'],
+        },
     }
 
-    request = await handler_send_message.wait_call()
-    assert request['request'].form == {
-        'chat_id': 100500,
-        'text': (
-            'Today is birthday of person1, person2\n'
-            'You forgot about birthdays: \n'
-            'person4 on 14.03'
-        )
+    assert handler_send_message.times_called == 2
+    requests = dict()
+    for i in range(2):
+        request = await handler_send_message.wait_call()
+        requests[request['request'].form['chat_id']] = request['request'].form
+
+    assert requests == {
+        100500: {
+            'chat_id': 100500,
+            'text': (
+                'Today is birthday of person1, person2\n'
+                'You forgot about birthdays: \n'
+                'person4 on 14.03'
+            )
+        },
+        100502: {
+            'chat_id': 100502,
+            'text': (
+                'Today is birthday of person5\n'
+                'You forgot about birthdays: \n'
+                'person6 on 14.03'
+            )
+        },
     }
 
     assert fetch_birthdays(pgsql) == [
@@ -146,6 +200,7 @@ async def test_notification(service_client, pgsql, testpoint, mockserver):
             is_enabled=True,
             last_notification_time=_NOW,
             year=1960,
+            user_id=1000,
         ),
         dict(
             person='person2',
@@ -154,6 +209,7 @@ async def test_notification(service_client, pgsql, testpoint, mockserver):
             is_enabled=True,
             last_notification_time=_NOW,
             year=None,
+            user_id=1000,
         ),
         dict(
             person='person3',
@@ -162,6 +218,7 @@ async def test_notification(service_client, pgsql, testpoint, mockserver):
             is_enabled=False,
             last_notification_time=None,
             year=None,
+            user_id=1000,
         ),
         dict(
             person='person4',
@@ -170,6 +227,25 @@ async def test_notification(service_client, pgsql, testpoint, mockserver):
             is_enabled=True,
             last_notification_time=_NOW,
             year=None,
+            user_id=1000,
+        ),
+        dict(
+            person='person5',
+            month=3,
+            day=15,
+            is_enabled=True,
+            last_notification_time=_NOW,
+            year=None,
+            user_id=1002,
+        ),
+        dict(
+            person='person6',
+            month=3,
+            day=14,
+            is_enabled=True,
+            last_notification_time=_NOW,
+            year=None,
+            user_id=1002,
         ),
     ]
 

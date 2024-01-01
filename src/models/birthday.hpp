@@ -6,6 +6,7 @@
 #include <userver/utils/strong_typedef.hpp>
 
 #include <models/time_point.hpp>
+#include <models/user.hpp>
 
 namespace telegram_bot::models {
 
@@ -23,6 +24,7 @@ struct Birthday {
   BirthdayDay d{};
   bool notification_enabled{};
   std::optional<TimePoint> last_notification_time;
+  UserId user_id{};
 };
 
 }  // namespace telegram_bot::models

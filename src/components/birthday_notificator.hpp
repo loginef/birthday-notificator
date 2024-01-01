@@ -48,7 +48,7 @@ struct BirthdaysToNotify {
   std::vector<std::string> forgotten;
 };
 
-BirthdaysToNotify FindBirthdaysToNotify(
+std::unordered_map<models::UserId, BirthdaysToNotify> FindBirthdaysToNotify(
     const std::vector<models::Birthday>& rows,
     const cctz::time_zone& notification_timezone,
     const cctz::civil_day& local_day);
