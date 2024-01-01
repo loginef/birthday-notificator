@@ -22,6 +22,7 @@ def insert_birthday(
     month: int,
     day: int,
     is_enabled: bool,
+    user_id: int,
     last_notification_time: Optional[dt.datetime] = None,
     year: Optional[int] = None
 ):
@@ -34,11 +35,12 @@ def insert_birthday(
             m,
             d,
             notification_enabled,
-            last_notification_time
+            last_notification_time,
+            user_id
         )
-        VALUES (%s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         """,
-        (person, year, month, day, is_enabled, last_notification_time)
+        (person, year, month, day, is_enabled, last_notification_time, user_id)
     )
 
 
@@ -52,7 +54,8 @@ def fetch_birthdays(pgsql):
             m,
             d,
             notification_enabled,
-            last_notification_time
+            last_notification_time,
+            user_id
         FROM birthday.birthdays
         ORDER BY id
         """
@@ -65,21 +68,32 @@ def fetch_birthdays(pgsql):
             'day': row[3],
             'is_enabled': row[4],
             'last_notification_time': row[5],
+            'user_id': row[6],
         }
         for row in cursor
     ]
 
 
+@pytest.mark.pgsql(
+    'pg_birthday',
+    queries=[
+        """
+        INSERT INTO birthday.users(id, chat_id)
+        VALUES (1000, 100500), (1002, 100502)
+        """,
+    ],
+)
 @pytest.mark.parametrize(
     'birthdays_in_db, sender_chat_id, expected_message',
     [
         pytest.param(
             [
-                dict(month=1, day=16),
-                dict(month=1, day=17),
-                dict(month=3, day=20),
-                dict(month=4, day=17),
-                dict(month=12, day=20),
+                dict(month=1, day=16, user_id=1000),
+                dict(month=1, day=17, user_id=1000),
+                dict(month=3, day=20, user_id=1000),
+                dict(month=4, day=17, user_id=1000),
+                dict(month=12, day=20, user_id=1000),
+                dict(month=3, day=15, user_id=1002),
             ],
             100500,
             'Next birthdays:\n'
@@ -92,11 +106,12 @@ def fetch_birthdays(pgsql):
         ),
         pytest.param(
             [
-                dict(month=1, day=15),
-                dict(month=1, day=17),
-                dict(month=3, day=15),
-                dict(month=4, day=17),
-                dict(month=12, day=20),
+                dict(month=1, day=15, user_id=1000),
+                dict(month=1, day=17, user_id=1000),
+                dict(month=3, day=15, user_id=1000),
+                dict(month=4, day=17, user_id=1000),
+                dict(month=12, day=20, user_id=1000),
+                dict(month=3, day=15, user_id=1002),
             ],
             100500,
             'Next birthdays:\n'
@@ -109,15 +124,16 @@ def fetch_birthdays(pgsql):
         ),
         pytest.param(
             [
-                dict(month=1, day=16),
-                dict(month=1, day=17),
-                dict(month=2, day=17),
-                dict(month=2, day=18),
-                dict(month=2, day=19),
-                dict(month=3, day=14),
-                dict(month=3, day=15),
-                dict(month=3, day=16),
-                dict(month=12, day=20),
+                dict(month=1, day=16, user_id=1000),
+                dict(month=1, day=17, user_id=1000),
+                dict(month=2, day=17, user_id=1000),
+                dict(month=2, day=18, user_id=1000),
+                dict(month=2, day=19, user_id=1000),
+                dict(month=3, day=14, user_id=1000),
+                dict(month=3, day=15, user_id=1000),
+                dict(month=3, day=16, user_id=1000),
+                dict(month=12, day=20, user_id=1000),
+                dict(month=3, day=15, user_id=1002),
             ],
             100500,
             'Next birthdays:\n'
@@ -136,15 +152,34 @@ def fetch_birthdays(pgsql):
         ),
         pytest.param(
             [
-                dict(month=1, day=16),
-                dict(month=1, day=17),
-                dict(month=3, day=20),
-                dict(month=4, day=17),
-                dict(month=12, day=20),
+                dict(month=1, day=16, user_id=1000),
+                dict(month=1, day=17, user_id=1000),
+                dict(month=3, day=20, user_id=1000),
+                dict(month=4, day=17, user_id=1000),
+                dict(month=12, day=20, user_id=1000),
+                dict(month=3, day=15, user_id=1002),
             ],
             100501,
-            'No birthdays for you, sorry',
+            'You are not registered yet',
             id='wrong_sender',
+        ),
+        pytest.param(
+            [
+                dict(month=1, day=16, user_id=1000),
+                dict(month=1, day=17, user_id=1000),
+                dict(month=2, day=17, user_id=1000),
+                dict(month=2, day=18, user_id=1000),
+                dict(month=2, day=19, user_id=1000),
+                dict(month=3, day=14, user_id=1000),
+                dict(month=3, day=15, user_id=1000),
+                dict(month=3, day=16, user_id=1000),
+                dict(month=12, day=20, user_id=1000),
+                dict(month=3, day=15, user_id=1002),
+            ],
+            100502,
+            'Next birthdays:\n'
+            'person9 on 15.03',
+            id='user_2',
         ),
     ]
 )
@@ -164,6 +199,7 @@ async def test_next_birthdays(
             month=event['month'],
             day=event['day'],
             is_enabled=True,
+            user_id=event['user_id'],
             last_notification_time=_NOW,
             year=None,
         )

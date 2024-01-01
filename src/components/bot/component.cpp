@@ -37,14 +37,15 @@ userver::yaml_config::Schema Component::GetStaticConfigSchema() {
 
 Component::~Component() = default;
 
-void Component::SendMessage(const std::string& text) const {
-  impl_->SendMessage(text);
+void Component::SendMessage(const models::ChatId chat_id,
+                            const std::string& text) const {
+  impl_->SendMessage(chat_id, text);
 }
 
 void Component::SendMessageWithKeyboard(
-    const std::string& text,
+    const models::ChatId chat_id, const std::string& text,
     const std::vector<std::vector<models::Button>>& button_rows) const {
-  impl_->SendMessageWithKeyboard(text, button_rows);
+  impl_->SendMessageWithKeyboard(chat_id, text, button_rows);
 }
 
 }  // namespace telegram_bot::components::bot

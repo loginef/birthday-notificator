@@ -8,6 +8,7 @@
 #include <userver/yaml_config/schema.hpp>
 
 #include <models/button.hpp>
+#include <models/user.hpp>
 
 namespace telegram_bot::components::bot {
 
@@ -25,9 +26,9 @@ class Component final : public userver::components::LoggableComponentBase {
             const userver::components::ComponentContext&);
   virtual ~Component() override;
 
-  void SendMessage(const std::string& text) const;
+  void SendMessage(models::ChatId chat_id, const std::string& text) const;
   void SendMessageWithKeyboard(
-      const std::string& text,
+      models::ChatId chat_id, const std::string& text,
       const std::vector<std::vector<models::Button>>& button_rows) const;
 
   static userver::yaml_config::Schema GetStaticConfigSchema();

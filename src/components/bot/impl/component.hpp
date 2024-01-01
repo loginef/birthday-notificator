@@ -23,22 +23,17 @@ class Component final {
 
   static constexpr const auto kName = "telegram-bot";
 
-  void SendMessage(int32_t chat_id, const std::string& text) const;
-  void SendMessage(const std::string& text) const;
+  void SendMessage(models::ChatId chat_id, const std::string& text) const;
   void SendMessageWithKeyboard(
-      int32_t chat_id, const std::string& text,
-      const std::vector<std::vector<models::Button>>& button_rows) const;
-  void SendMessageWithKeyboard(
-      const std::string& text,
+      models::ChatId chat_id, const std::string& text,
       const std::vector<std::vector<models::Button>>& button_rows) const;
   void UpdateMessageWithKeyboard(
-      int32_t chat_id, int32_t message_id, const std::string& text,
+      models::ChatId chat_id, int32_t message_id, const std::string& text,
       const std::vector<std::vector<models::Button>>& button_rows);
 
  private:
   TelegramApiHttpClient telegram_client_;
   std::string telegram_token_;
-  int64_t chat_id_{};
   std::string telegram_host_;
   TgBot::Bot bot_;
   userver::storages::postgres::ClusterPtr postgres_;
@@ -48,7 +43,7 @@ class Component final {
  private:
   void Start();
   void Run();
-  void SendMessageImpl(int32_t chat_id, const std::string& text,
+  void SendMessageImpl(models::ChatId chat_id, const std::string& text,
                        std::optional<std::vector<std::vector<models::Button>>>
                            button_rows) const;
   void RegisterCommand(const std::string& command,
@@ -59,11 +54,11 @@ class Component final {
   void OnNextBirthdaysCommand(TgBot::Message::Ptr message);
   void OnNextBirthdaysNewCommand(TgBot::Message::Ptr message);
   void OnAddBirthdayCommand(TgBot::Message::Ptr message);
-  void OnEditBirthdayButton(int32_t chat_id, int32_t message_id,
+  void OnEditBirthdayButton(models::ChatId chat_id, int32_t message_id,
                             const models::ButtonData& button_data);
-  void OnDeleteBirthdayButton(int32_t chat_id, int32_t message_id,
+  void OnDeleteBirthdayButton(models::ChatId chat_id, int32_t message_id,
                               const models::ButtonData& button_data);
-  void OnCancelButton(int32_t chat_id, int32_t message_id);
+  void OnCancelButton(models::ChatId chat_id, int32_t message_id);
   void OnCallbackQuery(const TgBot::CallbackQuery::Ptr callback);
 };
 

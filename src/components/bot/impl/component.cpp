@@ -26,6 +26,7 @@
 
 #include <components/bot/impl/reply_markup.hpp>
 #include <db/birthdays.hpp>
+#include <db/users.hpp>
 
 namespace telegram_bot::components::bot::impl {
 
@@ -47,17 +48,19 @@ std::string GetToken(const userver::components::ComponentContext& context) {
 const int32_t kNextBirthdaysLimitOld = 5;
 
 std::string GetNextBirthdaysMessage(
-    const int64_t sender_chat_id, const int64_t allowed_chat_id,
+    const models::ChatId chat_id,
     userver::storages::postgres::Cluster& postgres) {
-  if (sender_chat_id != allowed_chat_id) {
-    return "No birthdays for you, sorry";
+  const auto user_id = db::FindUser(chat_id, postgres);
+  if (!user_id.has_value()) {
+    return "You are not registered yet";
   }
 
-  auto list = db::FetchBirthdays(postgres);
+  auto list = db::FetchBirthdays(*user_id, postgres);
   if (list.empty()) {
     return "There are no birthdays";
   }
 
+  // TODO use user's timezone
   cctz::time_zone notification_timezone;
   if (!cctz::load_time_zone("Europe/Moscow", &notification_timezone)) {
     throw std::runtime_error("Unknown timezone Europe/Moscow");
@@ -98,13 +101,14 @@ struct MessageWithOptionalKeyboard {
 const int32_t kNextBirthdaysLimitNew = 6;
 
 MessageWithOptionalKeyboard GetNextBirthdaysMessageNew(
-    const int64_t sender_chat_id, const int64_t allowed_chat_id,
+    const models::ChatId chat_id,
     userver::storages::postgres::Cluster& postgres) {
-  if (sender_chat_id != allowed_chat_id) {
-    return {"No birthdays for you, sorry", {}};
+  const auto user_id = db::FindUser(chat_id, postgres);
+  if (!user_id.has_value()) {
+    return {"You are not registered yet", {}};
   }
 
-  auto list = db::FetchBirthdays(postgres);
+  auto list = db::FetchBirthdays(*user_id, postgres);
   if (list.empty()) {
     return {"There are no birthdays", {}};
   }
@@ -153,7 +157,6 @@ Component::Component(const userver::components::ComponentConfig& config,
     : telegram_client_{context.FindComponent<userver::components::HttpClient>()
                            .GetHttpClient()},
       telegram_token_(GetToken(context)),
-      chat_id_(config["chat_id"].As<int64_t>()),
       telegram_host_(config["telegram_host"].As<std::string>()),
       bot_(telegram_token_, telegram_client_, telegram_host_),
       postgres_(
@@ -174,40 +177,42 @@ void Component::Start() {
 }
 
 void Component::OnStartCommand(TgBot::Message::Ptr message) {
-  SendMessage(message->chat->id, "Hi!");
+  SendMessage(models::ChatId{message->chat->id}, "Hi!");
 }
 
 void Component::OnChatIdCommand(TgBot::Message::Ptr message) {
-  SendMessage(message->chat->id,
+  SendMessage(models::ChatId{message->chat->id},
               fmt::format("Your chat id is {}", message->chat->id));
 }
 
 void Component::OnNextBirthdaysCommand(TgBot::Message::Ptr message) {
-  SendMessage(message->chat->id,
-              GetNextBirthdaysMessage(message->chat->id, chat_id_, *postgres_));
+  SendMessage(
+      models::ChatId{message->chat->id},
+      GetNextBirthdaysMessage(models::ChatId{message->chat->id}, *postgres_));
 }
 
 void Component::OnNextBirthdaysNewCommand(TgBot::Message::Ptr message) {
-  auto response =
-      GetNextBirthdaysMessageNew(message->chat->id, chat_id_, *postgres_);
+  const models::ChatId chat_id{message->chat->id};
+  auto response = GetNextBirthdaysMessageNew(chat_id, *postgres_);
   if (response.keyboard.has_value()) {
-    SendMessageWithKeyboard(message->chat->id, response.text,
-                            *response.keyboard);
+    SendMessageWithKeyboard(chat_id, response.text, *response.keyboard);
   } else {
-    SendMessage(message->chat->id, response.text);
+    SendMessage(chat_id, response.text);
   }
 }
 
 void Component::OnAddBirthdayCommand(TgBot::Message::Ptr message) {
-  if (message->chat->id != chat_id_) {
-    SendMessage(message->chat->id, "Not ready yet");
+  const models::ChatId chat_id{message->chat->id};
+  const auto user_id = db::FindUser(chat_id, *postgres_);
+  if (!user_id.has_value()) {
+    SendMessage(chat_id, "Not registered yet, try to /register");
     return;
   }
 
   std::regex re(R"(^/add_birthday[^\s]*\s+(\d{2})\.(\d{2})(.(\d{4}))?\s+(.*))");
   std::smatch match;
   if (!std::regex_match(message->text, match, re)) {
-    SendMessage("Usage: /add_birthday DD.MM[.YYYY] Person Name");
+    SendMessage(chat_id, "Usage: /add_birthday DD.MM[.YYYY] Person Name");
     return;
   }
 
@@ -221,16 +226,16 @@ void Component::OnAddBirthdayCommand(TgBot::Message::Ptr message) {
   }
   std::string person = match[5];
   if (person.size() > 128) {
-    SendMessage("Too long name, provide up to 128 characters please");
+    SendMessage(chat_id, "Too long name, provide up to 128 characters please");
     return;
   }
 
-  db::InsertBirthday(m, d, y, person, *postgres_);
-  SendMessage(
-      fmt::format("Inserted the birthday of {} on {:02}.{:02}", person, d, m));
+  db::InsertBirthday(m, d, y, person, *user_id, *postgres_);
+  SendMessage(chat_id, fmt::format("Inserted the birthday of {} on {:02}.{:02}",
+                                   person, d, m));
 }
 
-void Component::OnEditBirthdayButton(const int32_t chat_id,
+void Component::OnEditBirthdayButton(const models::ChatId chat_id,
                                      const int32_t message_id,
                                      const models::ButtonData& button_data) {
   LOG_INFO() << "Got edit birthday command";
@@ -250,20 +255,34 @@ void Component::OnEditBirthdayButton(const int32_t chat_id,
   }
 }
 
-void Component::OnDeleteBirthdayButton(const int32_t chat_id,
+void Component::OnDeleteBirthdayButton(const models::ChatId chat_id,
                                        const int32_t message_id,
                                        const models::ButtonData& button_data) {
   LOG_INFO() << "Got delete birthday command";
-  if (button_data.birthday_id.has_value()) {
-    db::DeleteBirthday(*button_data.birthday_id, *postgres_);
-    UpdateMessageWithKeyboard(chat_id, message_id, "Deleted", {});
-  } else {
+  if (!button_data.birthday_id.has_value()) {
     LOG_WARNING() << "No birthday_id in button data";
     UpdateMessageWithKeyboard(chat_id, message_id, "Canceled", {});
+    return;
   }
+
+  const auto user_id = db::FindUser(chat_id, *postgres_);
+  if (!user_id.has_value()) {
+    LOG_WARNING() << "Got button from missing user";
+    UpdateMessageWithKeyboard(chat_id, message_id, "Canceled", {});
+    return;
+  }
+
+  if (!db::IsOwnerOfBirthday(*user_id, *button_data.birthday_id, *postgres_)) {
+    LOG_WARNING() << "Tried to delete another user's data";
+    UpdateMessageWithKeyboard(chat_id, message_id, "Canceled", {});
+    return;
+  }
+
+  db::DeleteBirthday(*button_data.birthday_id, *postgres_);
+  UpdateMessageWithKeyboard(chat_id, message_id, "Deleted", {});
 }
 
-void Component::OnCancelButton(const int32_t chat_id,
+void Component::OnCancelButton(const models::ChatId chat_id,
                                const int32_t message_id) {
   LOG_INFO() << "Got cancel command";
   UpdateMessageWithKeyboard(chat_id, message_id, "Canceled", {});
@@ -271,35 +290,29 @@ void Component::OnCancelButton(const int32_t chat_id,
 
 void Component::OnCallbackQuery(const TgBot::CallbackQuery::Ptr callback) {
   if (callback->message) {
-    if (callback->message->chat->id != chat_id_) {
-      UpdateMessageWithKeyboard(callback->message->chat->id,
-                                callback->message->messageId, "Unauthorized",
-                                {});
-    } else {
-      if (!callback->data.empty()) {
-        try {
-          const auto button_data =
-              models::ButtonData::FromBase64Serialized(callback->data);
-          switch (button_data.type) {
-            case models::ButtonType::kEditBirthday:
-              OnEditBirthdayButton(callback->message->chat->id,
-                                   callback->message->messageId, button_data);
-              break;
-            case models::ButtonType::kDeleteBirthday:
-              OnDeleteBirthdayButton(callback->message->chat->id,
-                                     callback->message->messageId, button_data);
-              break;
-            case models::ButtonType::kCancel:
-              OnCancelButton(callback->message->chat->id,
-                             callback->message->messageId);
-              break;
-          }
-        } catch (const std::exception& exc) {
-          LOG_ERROR() << "Failed to process callback query: " << exc;
+    const models::ChatId chat_id{callback->message->chat->id};
+    if (!callback->data.empty()) {
+      try {
+        const auto button_data =
+            models::ButtonData::FromBase64Serialized(callback->data);
+        switch (button_data.type) {
+          case models::ButtonType::kEditBirthday:
+            OnEditBirthdayButton(chat_id, callback->message->messageId,
+                                 button_data);
+            break;
+          case models::ButtonType::kDeleteBirthday:
+            OnDeleteBirthdayButton(chat_id, callback->message->messageId,
+                                   button_data);
+            break;
+          case models::ButtonType::kCancel:
+            OnCancelButton(chat_id, callback->message->messageId);
+            break;
         }
-      } else {
-        LOG_INFO() << "No data in callback, skip";
+      } catch (const std::exception& exc) {
+        LOG_ERROR() << "Failed to process callback query: " << exc;
       }
+    } else {
+      LOG_INFO() << "No data in callback, skip";
     }
   } else {
     LOG_INFO() << "No message in callback, skip";
@@ -346,41 +359,32 @@ void Component::Run() {
   }
 }
 
-void Component::SendMessage(const int32_t chat_id,
+void Component::SendMessage(const models::ChatId chat_id,
                             const std::string& text) const {
   SendMessageImpl(chat_id, text, std::nullopt);
 }
 
-void Component::SendMessage(const std::string& text) const {
-  SendMessageImpl(chat_id_, text, std::nullopt);
-}
-
 void Component::SendMessageWithKeyboard(
-    const std::string& text,
-    const std::vector<std::vector<models::Button>>& button_rows) const {
-  SendMessageImpl(chat_id_, text, button_rows);
-}
-
-void Component::SendMessageWithKeyboard(
-    const int32_t chat_id, const std::string& text,
+    const models::ChatId chat_id, const std::string& text,
     const std::vector<std::vector<models::Button>>& button_rows) const {
   SendMessageImpl(chat_id, text, button_rows);
 }
 
 void Component::SendMessageImpl(
-    const int32_t chat_id, const std::string& text,
+    const models::ChatId chat_id, const std::string& text,
     std::optional<std::vector<std::vector<models::Button>>> button_rows) const {
-  bot_.getApi().sendMessage(chat_id, text, false /*disableWebPagePreview*/,
-                            0 /*replyToMessageId*/,
-                            MakeReplyMarkup(std::move(button_rows)));
+  bot_.getApi().sendMessage(
+      chat_id.GetUnderlying(), text, false /*disableWebPagePreview*/,
+      0 /*replyToMessageId*/, MakeReplyMarkup(std::move(button_rows)));
 }
 
 void Component::UpdateMessageWithKeyboard(
-    const int32_t chat_id, int32_t message_id, const std::string& text,
+    const models::ChatId chat_id, int32_t message_id, const std::string& text,
     const std::vector<std::vector<models::Button>>& button_rows) {
-  bot_.getApi().editMessageText(
-      text, chat_id, message_id, "" /* inlineMessageId */, "" /* parseMode */,
-      false /* disableWebPagePreview */, MakeReplyMarkup(button_rows));
+  bot_.getApi().editMessageText(text, chat_id.GetUnderlying(), message_id,
+                                "" /* inlineMessageId */, "" /* parseMode */,
+                                false /* disableWebPagePreview */,
+                                MakeReplyMarkup(button_rows));
 }
 
 }  // namespace telegram_bot::components::bot::impl

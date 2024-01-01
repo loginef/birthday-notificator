@@ -24,6 +24,7 @@
 #include <userver/yaml_config/merge_schemas.hpp>
 
 #include <db/birthdays.hpp>
+#include <db/users.hpp>
 
 namespace telegram_bot::components {
 
@@ -127,51 +128,56 @@ void BirthdayNotificator::RunIteration() {
     return;
   }
 
-  const auto rows = db::FetchBirthdays(*postgres_);
+  const auto rows = db::FetchAllBirthdays(*postgres_);
   const auto birthdays_to_notify =
       impl::FindBirthdaysToNotify(rows, notification_timezone_, local_day);
 
   TESTPOINT("birthday-notificator", [&birthdays_to_notify]() {
     userver::formats::json::ValueBuilder builder;
-    builder["forgotten"] = SerializeArray(birthdays_to_notify.forgotten);
-    builder["celebrate_today"] =
-        SerializeArray(birthdays_to_notify.celebrate_today);
+    for (const auto& [user_id, birthdays] : birthdays_to_notify) {
+      userver::formats::json::ValueBuilder user_builder;
+      user_builder["forgotten"] = SerializeArray(birthdays.forgotten);
+      user_builder["celebrate_today"] =
+          SerializeArray(birthdays.celebrate_today);
+      builder[std::to_string(user_id.GetUnderlying())] = user_builder;
+    }
     return builder.ExtractValue();
   }());
 
-  std::vector<std::string> lines;
-  if (!birthdays_to_notify.celebrate_today.empty()) {
-    lines.push_back(
-        fmt::format("Today is birthday of {}",
-                    fmt::join(birthdays_to_notify.celebrate_today, ", ")));
-  }
-  if (!birthdays_to_notify.forgotten.empty()) {
-    lines.push_back(
-        fmt::format("You forgot about birthdays: \n{}",
-                    fmt::join(birthdays_to_notify.forgotten, "\n")));
-  }
+  for (const auto& [user_id, birthdays] : birthdays_to_notify) {
+    std::vector<std::string> lines;
+    if (!birthdays.celebrate_today.empty()) {
+      lines.push_back(fmt::format("Today is birthday of {}",
+                                  fmt::join(birthdays.celebrate_today, ", ")));
+    }
+    if (!birthdays.forgotten.empty()) {
+      lines.push_back(fmt::format("You forgot about birthdays: \n{}",
+                                  fmt::join(birthdays.forgotten, "\n")));
+    }
 
-  if (lines.empty()) {
-    return;
-  }
+    if (lines.empty()) {
+      continue;
+    }
 
-  bot_.SendMessage(fmt::format("{}", fmt::join(lines, "\n")));
+    const auto chat_id = db::GetChatId(user_id, *postgres_);
+    bot_.SendMessage(chat_id, fmt::format("{}", fmt::join(lines, "\n")));
 
-  for (const auto id : birthdays_to_notify.ids) {
-    db::UpdateBirthdayLastNotificationTime(now, id, *postgres_);
+    for (const auto id : birthdays.ids) {
+      db::UpdateBirthdayLastNotificationTime(now, id, *postgres_);
+    }
   }
 }
 
 namespace impl {
 
-BirthdaysToNotify FindBirthdaysToNotify(
+std::unordered_map<models::UserId, BirthdaysToNotify> FindBirthdaysToNotify(
     const std::vector<models::Birthday>& rows,
     const cctz::time_zone& notification_timezone,
     const cctz::civil_day& local_day) {
   const auto farthest_forgotten_day =
       local_day - kForgottenBirthdaySearchDistance.count();
 
-  BirthdaysToNotify result;
+  std::unordered_map<models::UserId, BirthdaysToNotify> result;
   for (const auto& row : rows) {
     if (!row.notification_enabled) {
       LOG_DEBUG() << "Skip birthday with disabled notification";
@@ -202,11 +208,11 @@ BirthdaysToNotify FindBirthdaysToNotify(
     }
 
     if (birthday == local_day) {
-      result.ids.push_back(row.id);
-      result.celebrate_today.push_back(row.person);
+      result[row.user_id].ids.push_back(row.id);
+      result[row.user_id].celebrate_today.push_back(row.person);
     } else {
-      result.ids.push_back(row.id);
-      result.forgotten.push_back(
+      result[row.user_id].ids.push_back(row.id);
+      result[row.user_id].forgotten.push_back(
           fmt::format("{} on {:02}.{:02}", row.person, row.d, row.m));
     }
   }

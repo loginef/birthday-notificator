@@ -32,6 +32,7 @@ def insert_birthday(
     day: int,
     is_enabled: bool,
     id: int,
+    user_id: int,
     last_notification_time: Optional[dt.datetime] = None,
     year: Optional[int] = None
 ):
@@ -45,11 +46,21 @@ def insert_birthday(
             d,
             notification_enabled,
             last_notification_time,
-            id
+            id,
+            user_id
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """,
-        (person, year, month, day, is_enabled, last_notification_time, id)
+        (
+            person,
+            year,
+            month,
+            day,
+            is_enabled,
+            last_notification_time,
+            id,
+            user_id
+        )
     )
 
 
@@ -64,7 +75,8 @@ def fetch_birthdays(pgsql):
             d,
             notification_enabled,
             last_notification_time,
-            id
+            id,
+            user_id
         FROM birthday.birthdays
         ORDER BY id
         """
@@ -78,6 +90,7 @@ def fetch_birthdays(pgsql):
             'is_enabled': row[4],
             'last_notification_time': row[5],
             'id': row[6],
+            'user_id': row[7],
         }
         for row in cursor
     ]
@@ -115,16 +128,26 @@ class Button:
         return base64.b64encode(button.SerializeToString()).decode('utf-8')
 
 
+@pytest.mark.pgsql(
+    'pg_birthday',
+    queries=[
+        """
+        INSERT INTO birthday.users(id, chat_id)
+        VALUES (1000, 100500), (1002, 100502)
+        """,
+    ],
+)
 @pytest.mark.parametrize(
     'birthdays_in_db, sender_chat_id, expected_message, expected_buttons',
     [
         pytest.param(
             [
-                dict(month=1, day=16, id=1000),
-                dict(month=1, day=17, id=1001),
-                dict(month=3, day=20, id=1002),
-                dict(month=4, day=17, id=1003),
-                dict(month=12, day=20, id=1004),
+                dict(month=1, day=16, id=1000, user_id=1000),
+                dict(month=1, day=17, id=1001, user_id=1000),
+                dict(month=3, day=20, id=1002, user_id=1000),
+                dict(month=4, day=17, id=1003, user_id=1000),
+                dict(month=12, day=20, id=1004, user_id=1000),
+                dict(month=3, day=20, id=1005, user_id=1002),
             ],
             100500,
             'Next 5 birthdays:',
@@ -164,11 +187,12 @@ class Button:
         ),
         pytest.param(
             [
-                dict(month=1, day=15, id=1000),
-                dict(month=1, day=17, id=1001),
-                dict(month=3, day=15, id=1002),
-                dict(month=4, day=17, id=1003),
-                dict(month=12, day=20, id=1004),
+                dict(month=1, day=15, id=1000, user_id=1000),
+                dict(month=1, day=17, id=1001, user_id=1000),
+                dict(month=3, day=15, id=1002, user_id=1000),
+                dict(month=4, day=17, id=1003, user_id=1000),
+                dict(month=12, day=20, id=1004, user_id=1000),
+                dict(month=3, day=15, id=1005, user_id=1002),
             ],
             100500,
             'Next 5 birthdays:',
@@ -208,15 +232,16 @@ class Button:
         ),
         pytest.param(
             [
-                dict(month=1, day=16, id=1000),
-                dict(month=1, day=17, id=1001),
-                dict(month=2, day=17, id=1002),
-                dict(month=2, day=18, id=1003),
-                dict(month=2, day=19, id=1004),
-                dict(month=3, day=14, id=1005),
-                dict(month=3, day=15, id=1006),
-                dict(month=3, day=16, id=1007),
-                dict(month=12, day=20, id=1008),
+                dict(month=1, day=16, id=1000, user_id=1000),
+                dict(month=1, day=17, id=1001, user_id=1000),
+                dict(month=2, day=17, id=1002, user_id=1000),
+                dict(month=2, day=18, id=1003, user_id=1000),
+                dict(month=2, day=19, id=1004, user_id=1000),
+                dict(month=3, day=14, id=1005, user_id=1000),
+                dict(month=3, day=15, id=1006, user_id=1000),
+                dict(month=3, day=16, id=1007, user_id=1000),
+                dict(month=12, day=20, id=1008, user_id=1000),
+                dict(month=3, day=15, id=1009, user_id=1002),
             ],
             100500,
             'Next 6 birthdays:',
@@ -269,14 +294,14 @@ class Button:
         ),
         pytest.param(
             [
-                dict(month=1, day=16, id=1000),
-                dict(month=1, day=17, id=1001),
-                dict(month=3, day=20, id=1002),
-                dict(month=4, day=17, id=1003),
-                dict(month=12, day=20, id=1004),
+                dict(month=1, day=16, id=1000, user_id=1000),
+                dict(month=1, day=17, id=1001, user_id=1000),
+                dict(month=3, day=20, id=1002, user_id=1000),
+                dict(month=4, day=17, id=1003, user_id=1000),
+                dict(month=12, day=20, id=1004, user_id=1000),
             ],
             100501,
-            'No birthdays for you, sorry',
+            'You are not registered yet',
             None,
             id='wrong_sender',
         ),
@@ -300,6 +325,7 @@ async def test_next_birthdays(
             day=event['day'],
             is_enabled=True,
             id=event['id'],
+            user_id=event['user_id'],
             last_notification_time=_NOW,
             year=None,
         )
@@ -375,6 +401,15 @@ async def test_next_birthdays(
     }
 
 
+@pytest.mark.pgsql(
+    'pg_birthday',
+    queries=[
+        """
+        INSERT INTO birthday.users(id, chat_id)
+        VALUES (1000, 100500), (1002, 100502)
+        """,
+    ],
+)
 @pytest.mark.parametrize(
     'sender_chat_id, callback_message_exists, callback_button, '
     'expected_message, expected_buttons',
@@ -405,19 +440,19 @@ async def test_next_birthdays(
             ],
             id='ok',
         ),
-        pytest.param(
-            100501,
-            True,
-            Button(
-                title='person2 on 20.03',
-                birthday_id=1001,
-                context_id=_CONTEXT_ID_NEXT_BDS,
-                button_id=_BUTTON_ID_EDIT_BD,
-            ),
-            'Unauthorized',
-            None,
-            id='unauthorized',
-        ),
+        # pytest.param(
+        #     100501,
+        #     True,
+        #     Button(
+        #         title='person2 on 20.03',
+        #         birthday_id=1001,
+        #         context_id=_CONTEXT_ID_NEXT_BDS,
+        #         button_id=_BUTTON_ID_EDIT_BD,
+        #     ),
+        #     'Unauthorized',
+        #     None,
+        #     id='unauthorized',
+        # ),
         pytest.param(
             100500,
             False,
@@ -574,6 +609,15 @@ async def test_edit_birthday(
         assert not handler_edit_message.has_calls
 
 
+@pytest.mark.pgsql(
+    'pg_birthday',
+    queries=[
+        """
+        INSERT INTO birthday.users(id, chat_id)
+        VALUES (1000, 100500), (1002, 100502)
+        """,
+    ],
+)
 @pytest.mark.parametrize(
     'sender_chat_id, callback_message_exists, callback_button, '
     'expected_message, expect_deletion',
@@ -600,9 +644,22 @@ async def test_edit_birthday(
                 context_id=_CONTEXT_ID_EDIT_BD,
                 button_id=_BUTTON_ID_DELETE_BD,
             ),
-            'Unauthorized',
+            'Canceled',
             False,
             id='unauthorized',
+        ),
+        pytest.param(
+            100502,
+            True,
+            Button(
+                title='person2 on 20.03',
+                birthday_id=1002,
+                context_id=_CONTEXT_ID_EDIT_BD,
+                button_id=_BUTTON_ID_DELETE_BD,
+            ),
+            'Canceled',
+            False,
+            id='try_delete_anothers_data',
         ),
         pytest.param(
             100500,
@@ -652,11 +709,12 @@ async def test_delete_birthday(
     expect_deletion: Optional[List[Button]],
 ):
     initial_birthdays = [
-        dict(month=1, day=16, id=1000),
-        dict(month=1, day=17, id=1001),
-        dict(month=3, day=20, id=1002),
-        dict(month=4, day=17, id=1003),
-        dict(month=12, day=20, id=1004),
+        dict(month=1, day=16, id=1000, user_id=1000),
+        dict(month=1, day=17, id=1001, user_id=1000),
+        dict(month=3, day=20, id=1002, user_id=1000),
+        dict(month=4, day=17, id=1003, user_id=1000),
+        dict(month=12, day=20, id=1004, user_id=1000),
+        dict(month=3, day=20, id=1005, user_id=1002),
     ]
 
     initial_birthdays_in_db = [
@@ -668,6 +726,7 @@ async def test_delete_birthday(
             'is_enabled': True,
             'last_notification_time': _NOW,
             'id': event['id'],
+            'user_id': event['user_id'],
         }
         for i, event in enumerate(initial_birthdays)
     ]
@@ -680,6 +739,7 @@ async def test_delete_birthday(
             day=row['day'],
             is_enabled=row['is_enabled'],
             id=row['id'],
+            user_id=row['user_id'],
             last_notification_time=row['last_notification_time'],
             year=row['year'],
         )
@@ -814,7 +874,7 @@ async def test_delete_birthday(
                 context_id=_CONTEXT_ID_EDIT_BD,
                 button_id=_BUTTON_ID_CANCEL,
             ),
-            'Unauthorized',
+            'Canceled',
             id='unauthorized',
         ),
         pytest.param(

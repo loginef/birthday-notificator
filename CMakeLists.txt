@@ -11,6 +11,7 @@ add_subdirectory(src/messages)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "-std=c++20")
+set(ARG_PRETTY_LOGS OFF)
 
 # Common sources
 add_library(${PROJECT_NAME}_objs OBJECT
@@ -28,8 +29,11 @@ add_library(${PROJECT_NAME}_objs OBJECT
     src/models/button.hpp
     src/models/button.cpp
     src/models/time_point.hpp
+    src/models/user.hpp
     src/db/birthdays.hpp
     src/db/birthdays.cpp
+    src/db/users.hpp
+    src/db/users.cpp
     ${PROTO_HDRS}
     ${PROTO_SRCS}
 )
