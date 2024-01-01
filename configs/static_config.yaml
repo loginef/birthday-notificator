@@ -64,7 +64,6 @@ components_manager:
             config: $secdist-path
 
         telegram-bot:
-            chat_id: $chat_id
             telegram_host: "https://api.telegram.org"
 
         birthday-notificator:

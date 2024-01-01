@@ -11,7 +11,6 @@ add_subdirectory(src/messages)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "-std=c++20")
-set(ARG_PRETTY_LOGS OFF)
 
 # Common sources
 add_library(${PROJECT_NAME}_objs OBJECT

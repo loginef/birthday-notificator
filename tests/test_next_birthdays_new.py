@@ -440,19 +440,6 @@ async def test_next_birthdays(
             ],
             id='ok',
         ),
-        # pytest.param(
-        #     100501,
-        #     True,
-        #     Button(
-        #         title='person2 on 20.03',
-        #         birthday_id=1001,
-        #         context_id=_CONTEXT_ID_NEXT_BDS,
-        #         button_id=_BUTTON_ID_EDIT_BD,
-        #     ),
-        #     'Unauthorized',
-        #     None,
-        #     id='unauthorized',
-        # ),
         pytest.param(
             100500,
             False,
