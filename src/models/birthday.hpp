@@ -27,4 +27,6 @@ struct Birthday {
   UserId user_id{};
 };
 
+bool IsValidDate(std::optional<BirthdayYear> y, BirthdayMonth m, BirthdayDay d);
+
 }  // namespace telegram_bot::models

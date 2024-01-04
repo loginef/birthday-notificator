@@ -25,6 +25,7 @@ add_library(${PROJECT_NAME}_objs OBJECT
     src/components/bot/component.hpp
     src/components/bot/component.cpp
     src/models/birthday.hpp
+    src/models/birthday.cpp
     src/models/button.hpp
     src/models/button.cpp
     src/models/time_point.hpp
