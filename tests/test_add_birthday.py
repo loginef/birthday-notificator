@@ -68,7 +68,7 @@ def fetch_birthdays(pgsql):
                 'day': 1,
                 'is_enabled': True,
                 'last_notification_time': None,
-                'chat_id': 1000,
+                'user_id': 1000,
             },
             id='ok',
         ),
@@ -77,13 +77,13 @@ def fetch_birthdays(pgsql):
             '/add_birthday 01.02 KINIAEV Foma',
             'Inserted the birthday of KINIAEV Foma on 01.02',
             {
-                'person': 'ЛШТШФУМ Ащьф',
+                'person': 'KINIAEV Foma',
                 'year': None,
                 'month': 2,
                 'day': 1,
                 'is_enabled': True,
                 'last_notification_time': None,
-                'chat_id': 1002,
+                'user_id': 1002,
             },
             id='without_year',
         ),
@@ -98,7 +98,7 @@ def fetch_birthdays(pgsql):
                 'day': 1,
                 'is_enabled': True,
                 'last_notification_time': None,
-                'chat_id': 1000,
+                'user_id': 1000,
             },
             id='with_bot_tag',
         ),
@@ -148,7 +148,7 @@ def fetch_birthdays(pgsql):
                 'day': 1,
                 'is_enabled': True,
                 'last_notification_time': None,
-                'chat_id': 1000,
+                'user_id': 1000,
             },
             id='cyrillic',
         ),
@@ -234,13 +234,13 @@ def fetch_birthdays(pgsql):
             '/add_birthday 29.02 KINIAEV Foma',
             'Inserted the birthday of KINIAEV Foma on 29.02',
             {
-                'person': 'ЛШТШФУМ Ащьф',
+                'person': 'KINIAEV Foma',
                 'year': None,
                 'month': 2,
                 'day': 29,
                 'is_enabled': True,
                 'last_notification_time': None,
-                'chat_id': 1000,
+                'user_id': 1000,
             },
             id='february_no_year',
         ),
@@ -249,13 +249,13 @@ def fetch_birthdays(pgsql):
             '/add_birthday 29.02.2024 KINIAEV Foma',
             'Inserted the birthday of KINIAEV Foma on 29.02',
             {
-                'person': 'ЛШТШФУМ Ащьф',
-                'year': None,
+                'person': 'KINIAEV Foma',
+                'year': 2024,
                 'month': 2,
                 'day': 29,
                 'is_enabled': True,
                 'last_notification_time': None,
-                'chat_id': 1000,
+                'user_id': 1000,
             },
             id='february_leap_year',
         ),
@@ -335,6 +335,6 @@ async def test_add_birthday(
 
     birthdays = fetch_birthdays(pgsql)
     if expected_birthday:
-        birthdays = [expected_birthday]
+        assert birthdays == [expected_birthday]
     else:
         assert not birthdays

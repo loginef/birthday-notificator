@@ -8,7 +8,7 @@
 
 namespace telegram_bot::db {
 
-void InsertUser(models::UserId user_id, models::ChatId chat_id,
+void InsertUser(models::ChatId chat_id,
                 userver::storages::postgres::Cluster& postgres);
 
 std::optional<models::UserId> FindUser(

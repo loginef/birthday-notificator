@@ -293,6 +293,20 @@ void Component::OnCancelButton(const models::ChatId chat_id,
   UpdateMessageWithKeyboard(chat_id, message_id, "Canceled", {});
 }
 
+void Component::OnRegisterCommand(TgBot::Message::Ptr message) {
+  const models::ChatId chat_id{message->chat->id};
+  const auto user_id = db::FindUser(chat_id, *postgres_);
+  if (user_id.has_value()) {
+    SendMessage(chat_id, "Already registered");
+    return;
+  }
+
+  db::InsertUser(chat_id, *postgres_);
+  SendMessage(chat_id,
+              "Done. Note that all your personal data will be stored in plain "
+              "text. I promise not to look :)");
+}
+
 void Component::OnCallbackQuery(const TgBot::CallbackQuery::Ptr callback) {
   if (callback->message) {
     const models::ChatId chat_id{callback->message->chat->id};
@@ -343,6 +357,7 @@ void Component::Run() {
     RegisterCommand("next_birthdays_new",
                     &Component::OnNextBirthdaysNewCommand);
     RegisterCommand("add_birthday", &Component::OnAddBirthdayCommand);
+    RegisterCommand("register", &Component::OnRegisterCommand);
 
     bot_.getEvents().onCallbackQuery(
         [this](const TgBot::CallbackQuery::Ptr callback) {
