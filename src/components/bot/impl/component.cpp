@@ -224,6 +224,11 @@ void Component::OnAddBirthdayCommand(TgBot::Message::Ptr message) {
     // skip dot, which is index 4
     y = models::BirthdayYear{std::stoi(match[4])};
   }
+  if (!models::IsValidDate(y, m, d)) {
+    SendMessage(chat_id, "Invalid date");
+    return;
+  }
+
   std::string person = match[5];
   if (person.size() > 128) {
     SendMessage(chat_id, "Too long name, provide up to 128 characters please");
