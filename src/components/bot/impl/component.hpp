@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <optional>
 #include <string>
 #include <unordered_set>
@@ -8,6 +9,7 @@
 #include <userver/components/component_fwd.hpp>
 #include <userver/engine/task/task_with_result.hpp>
 #include <userver/storages/postgres/cluster.hpp>
+#include <userver/utils/statistics/entry.hpp>
 
 #include <tgbot/tgbot.h>
 
@@ -16,6 +18,13 @@
 
 namespace telegram_bot::components::bot::impl {
 
+struct Metrics {
+  std::atomic<int64_t> received_commands{};
+  std::atomic<int64_t> received_callbacks{};
+  std::atomic<int64_t> sent_messages{};
+  std::atomic<int64_t> updated_messages{};
+};
+
 class Component final {
  public:
   Component(const userver::components::ComponentConfig&,
@@ -23,10 +32,10 @@ class Component final {
 
   static constexpr const auto kName = "telegram-bot";
 
-  void SendMessage(models::ChatId chat_id, const std::string& text) const;
+  void SendMessage(models::ChatId chat_id, const std::string& text);
   void SendMessageWithKeyboard(
       models::ChatId chat_id, const std::string& text,
-      const std::vector<std::vector<models::Button>>& button_rows) const;
+      const std::vector<std::vector<models::Button>>& button_rows);
   void UpdateMessageWithKeyboard(
       models::ChatId chat_id, int32_t message_id, const std::string& text,
       const std::vector<std::vector<models::Button>>& button_rows);
@@ -38,14 +47,16 @@ class Component final {
   TgBot::Bot bot_;
   userver::storages::postgres::ClusterPtr postgres_;
   std::unordered_set<std::string> bot_commands_;
+  Metrics metrics_;
+  userver::utils::statistics::Entry statistics_holder_;
   userver::engine::TaskWithResult<void> task_;
 
  private:
   void Start();
   void Run();
-  void SendMessageImpl(models::ChatId chat_id, const std::string& text,
-                       std::optional<std::vector<std::vector<models::Button>>>
-                           button_rows) const;
+  void SendMessageImpl(
+      models::ChatId chat_id, const std::string& text,
+      std::optional<std::vector<std::vector<models::Button>>> button_rows);
   void RegisterCommand(const std::string& command,
                        void (Component::*handler)(TgBot::Message::Ptr));
 

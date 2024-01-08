@@ -5,6 +5,7 @@ logger-level: debug
 is-testing: true
 
 server-port: 8080
+monitor-port: 8081
 
 secdist-path: /home/user/.local/etc/telegram_bot/secdist.json
 
