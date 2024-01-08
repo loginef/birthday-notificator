@@ -11,6 +11,7 @@
 #include <userver/clients/http/component.hpp>
 #include <userver/components/component_config.hpp>
 #include <userver/components/component_context.hpp>
+#include <userver/components/statistics_storage.hpp>
 #include <userver/engine/sleep.hpp>
 #include <userver/engine/task/cancel.hpp>
 #include <userver/formats/json/value.hpp>
@@ -162,6 +163,18 @@ Component::Component(const userver::components::ComponentConfig& config,
       postgres_(
           context.FindComponent<userver::components::Postgres>("postgres-db")
               .GetCluster()) {
+  auto& storage =
+      context.FindComponent<userver::components::StatisticsStorage>()
+          .GetStorage();
+
+  statistics_holder_ = storage.RegisterWriter(
+      kName, [this](userver::utils::statistics::Writer& writer) {
+        writer["received-commands"] = metrics_.received_commands;
+        writer["received-callbacks"] = metrics_.received_callbacks;
+        writer["sent-messages"] = metrics_.sent_messages;
+        writer["updated-messages"] = metrics_.updated_messages;
+      });
+
   bot_.getApi().deleteWebhook();
   Start();
 }
@@ -177,21 +190,26 @@ void Component::Start() {
 }
 
 void Component::OnStartCommand(TgBot::Message::Ptr message) {
+  ++metrics_.received_commands;
   SendMessage(models::ChatId{message->chat->id}, "Hi!");
 }
 
 void Component::OnChatIdCommand(TgBot::Message::Ptr message) {
+  ++metrics_.received_commands;
   SendMessage(models::ChatId{message->chat->id},
               fmt::format("Your chat id is {}", message->chat->id));
 }
 
 void Component::OnNextBirthdaysCommand(TgBot::Message::Ptr message) {
+  ++metrics_.received_commands;
   SendMessage(
       models::ChatId{message->chat->id},
       GetNextBirthdaysMessage(models::ChatId{message->chat->id}, *postgres_));
 }
 
 void Component::OnNextBirthdaysNewCommand(TgBot::Message::Ptr message) {
+  ++metrics_.received_commands;
+
   const models::ChatId chat_id{message->chat->id};
   auto response = GetNextBirthdaysMessageNew(chat_id, *postgres_);
   if (response.keyboard.has_value()) {
@@ -202,6 +220,8 @@ void Component::OnNextBirthdaysNewCommand(TgBot::Message::Ptr message) {
 }
 
 void Component::OnAddBirthdayCommand(TgBot::Message::Ptr message) {
+  ++metrics_.received_commands;
+
   const models::ChatId chat_id{message->chat->id};
   const auto user_id = db::FindUser(chat_id, *postgres_);
   if (!user_id.has_value()) {
@@ -294,6 +314,8 @@ void Component::OnCancelButton(const models::ChatId chat_id,
 }
 
 void Component::OnRegisterCommand(TgBot::Message::Ptr message) {
+  ++metrics_.received_commands;
+
   const models::ChatId chat_id{message->chat->id};
   const auto user_id = db::FindUser(chat_id, *postgres_);
   if (user_id.has_value()) {
@@ -308,6 +330,8 @@ void Component::OnRegisterCommand(TgBot::Message::Ptr message) {
 }
 
 void Component::OnCallbackQuery(const TgBot::CallbackQuery::Ptr callback) {
+  ++metrics_.received_callbacks;
+
   if (callback->message) {
     const models::ChatId chat_id{callback->message->chat->id};
     if (!callback->data.empty()) {
@@ -380,19 +404,21 @@ void Component::Run() {
 }
 
 void Component::SendMessage(const models::ChatId chat_id,
-                            const std::string& text) const {
+                            const std::string& text) {
   SendMessageImpl(chat_id, text, std::nullopt);
 }
 
 void Component::SendMessageWithKeyboard(
     const models::ChatId chat_id, const std::string& text,
-    const std::vector<std::vector<models::Button>>& button_rows) const {
+    const std::vector<std::vector<models::Button>>& button_rows) {
   SendMessageImpl(chat_id, text, button_rows);
 }
 
 void Component::SendMessageImpl(
     const models::ChatId chat_id, const std::string& text,
-    std::optional<std::vector<std::vector<models::Button>>> button_rows) const {
+    std::optional<std::vector<std::vector<models::Button>>> button_rows) {
+  ++metrics_.sent_messages;
+
   bot_.getApi().sendMessage(
       chat_id.GetUnderlying(), text, false /*disableWebPagePreview*/,
       0 /*replyToMessageId*/, MakeReplyMarkup(std::move(button_rows)));
@@ -401,6 +427,8 @@ void Component::SendMessageImpl(
 void Component::UpdateMessageWithKeyboard(
     const models::ChatId chat_id, int32_t message_id, const std::string& text,
     const std::vector<std::vector<models::Button>>& button_rows) {
+  ++metrics_.updated_messages;
+
   bot_.getApi().editMessageText(text, chat_id.GetUnderlying(), message_id,
                                 "" /* inlineMessageId */, "" /* parseMode */,
                                 false /* disableWebPagePreview */,
