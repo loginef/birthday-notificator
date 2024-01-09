@@ -46,54 +46,6 @@ std::string GetToken(const userver::components::ComponentContext& context) {
   return secdist_config.Get<Token>().token;
 }
 
-const int32_t kNextBirthdaysLimitOld = 5;
-
-std::string GetNextBirthdaysMessage(
-    const models::ChatId chat_id,
-    userver::storages::postgres::Cluster& postgres) {
-  const auto user_id = db::FindUser(chat_id, postgres);
-  if (!user_id.has_value()) {
-    return "You are not registered yet";
-  }
-
-  auto list = db::FetchBirthdays(*user_id, postgres);
-  if (list.empty()) {
-    return "There are no birthdays";
-  }
-
-  // TODO use user's timezone
-  cctz::time_zone notification_timezone;
-  if (!cctz::load_time_zone("Europe/Moscow", &notification_timezone)) {
-    throw std::runtime_error("Unknown timezone Europe/Moscow");
-  }
-  const auto now = userver::utils::datetime::Now();
-  const auto local_time = cctz::convert(now, notification_timezone);
-  const auto local_day = cctz::civil_day(local_time);
-
-  std::sort(
-      list.begin(), list.end(),
-      [local_day](const models::Birthday& lhs, const models::Birthday& rhs) {
-        const int l_year = std::tuple(lhs.m, lhs.d) <
-                           std::tuple(models::BirthdayMonth{local_day.month()},
-                                      models::BirthdayDay{local_day.day()});
-        const int r_year = std::tuple(rhs.m, rhs.d) <
-                           std::tuple(models::BirthdayMonth{local_day.month()},
-                                      models::BirthdayDay{local_day.day()});
-        return std::tuple(l_year, lhs.m, lhs.d) <
-               std::tuple(r_year, rhs.m, rhs.d);
-      });
-  if (list.size() > kNextBirthdaysLimitOld) {
-    list.resize(kNextBirthdaysLimitOld);
-  }
-
-  std::string message = "Next birthdays:";
-  for (const auto& birthday : list) {
-    message += fmt::format("\n{} on {:02}.{:02}", birthday.person, birthday.d,
-                           birthday.m);
-  }
-  return message;
-}
-
 struct MessageWithOptionalKeyboard {
   std::string text;
   std::optional<std::vector<std::vector<models::Button>>> keyboard;
@@ -101,7 +53,7 @@ struct MessageWithOptionalKeyboard {
 
 const int32_t kNextBirthdaysLimitNew = 6;
 
-MessageWithOptionalKeyboard GetNextBirthdaysMessageNew(
+MessageWithOptionalKeyboard GetNextBirthdaysMessage(
     const models::ChatId chat_id,
     userver::storages::postgres::Cluster& postgres) {
   const auto user_id = db::FindUser(chat_id, postgres);
@@ -202,16 +154,9 @@ void Component::OnChatIdCommand(TgBot::Message::Ptr message) {
 
 void Component::OnNextBirthdaysCommand(TgBot::Message::Ptr message) {
   ++metrics_.received_commands;
-  SendMessage(
-      models::ChatId{message->chat->id},
-      GetNextBirthdaysMessage(models::ChatId{message->chat->id}, *postgres_));
-}
-
-void Component::OnNextBirthdaysNewCommand(TgBot::Message::Ptr message) {
-  ++metrics_.received_commands;
 
   const models::ChatId chat_id{message->chat->id};
-  auto response = GetNextBirthdaysMessageNew(chat_id, *postgres_);
+  auto response = GetNextBirthdaysMessage(chat_id, *postgres_);
   if (response.keyboard.has_value()) {
     SendMessageWithKeyboard(chat_id, response.text, *response.keyboard);
   } else {
@@ -378,8 +323,6 @@ void Component::Run() {
     RegisterCommand("start", &Component::OnStartCommand);
     RegisterCommand("chat_id", &Component::OnChatIdCommand);
     RegisterCommand("next_birthdays", &Component::OnNextBirthdaysCommand);
-    RegisterCommand("next_birthdays_new",
-                    &Component::OnNextBirthdaysNewCommand);
     RegisterCommand("add_birthday", &Component::OnAddBirthdayCommand);
     RegisterCommand("register", &Component::OnRegisterCommand);
 

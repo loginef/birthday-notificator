@@ -63,7 +63,6 @@ class Component final {
   void OnStartCommand(TgBot::Message::Ptr message);
   void OnChatIdCommand(TgBot::Message::Ptr message);
   void OnNextBirthdaysCommand(TgBot::Message::Ptr message);
-  void OnNextBirthdaysNewCommand(TgBot::Message::Ptr message);
   void OnAddBirthdayCommand(TgBot::Message::Ptr message);
   void OnEditBirthdayButton(models::ChatId chat_id, int32_t message_id,
                             const models::ButtonData& button_data);
