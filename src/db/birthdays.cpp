@@ -41,6 +41,12 @@ FROM birthday.birthdays
 WHERE birthdays.id = $1
 )";
 
+const std::string kDeleteAllUserBirthdaysQuery = R"(
+DELETE
+FROM birthday.birthdays
+WHERE birthdays.user_id = $1
+)";
+
 const std::string kUpdateLastNotificationTime = R"(
 UPDATE birthday.birthdays
 SET last_notification_time = $1
@@ -110,6 +116,12 @@ void DeleteBirthday(const models::BirthdayId birthday_id,
                     userver::storages::postgres::Cluster& postgres) {
   postgres.Execute(userver::storages::postgres::ClusterHostType::kMaster,
                    kDeleteBirthdayQuery, birthday_id);
+}
+
+void DeleteAllBirthdays(const models::UserId user_id,
+                        userver::storages::postgres::Cluster& postgres) {
+  postgres.Execute(userver::storages::postgres::ClusterHostType::kMaster,
+                   kDeleteAllUserBirthdaysQuery, user_id);
 }
 
 void UpdateBirthdayLastNotificationTime(

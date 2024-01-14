@@ -21,6 +21,9 @@ bool IsOwnerOfBirthday(models::UserId user_id, models::BirthdayId birthday_id,
 void DeleteBirthday(models::BirthdayId birthday_id,
                     userver::storages::postgres::Cluster& postgres);
 
+void DeleteAllBirthdays(models::UserId user_id,
+                        userver::storages::postgres::Cluster& postgres);
+
 void UpdateBirthdayLastNotificationTime(
     models::TimePoint last_notification_time, models::BirthdayId id,
     userver::storages::postgres::Cluster& postgres);

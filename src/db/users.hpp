@@ -17,4 +17,7 @@ std::optional<models::UserId> FindUser(
 models::ChatId GetChatId(models::UserId user_id,
                          userver::storages::postgres::Cluster& postgres);
 
+void DeleteUser(models::UserId user_id,
+                userver::storages::postgres::Cluster& postgres);
+
 }  // namespace telegram_bot::db

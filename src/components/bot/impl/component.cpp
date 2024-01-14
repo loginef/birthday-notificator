@@ -274,6 +274,22 @@ void Component::OnRegisterCommand(TgBot::Message::Ptr message) {
               "text. I promise not to look :)");
 }
 
+void Component::OnUnregisterCommand(TgBot::Message::Ptr message) {
+  ++metrics_.received_commands;
+
+  const models::ChatId chat_id{message->chat->id};
+  const auto user_id = db::FindUser(chat_id, *postgres_);
+  if (!user_id.has_value()) {
+    SendMessage(chat_id, "You are not registered");
+    return;
+  }
+
+  db::DeleteAllBirthdays(*user_id, *postgres_);
+  db::DeleteUser(*user_id, *postgres_);
+
+  SendMessage(chat_id, "Deleted all your birthdays and forgot about you");
+}
+
 void Component::OnCallbackQuery(const TgBot::CallbackQuery::Ptr callback) {
   ++metrics_.received_callbacks;
 
@@ -320,11 +336,12 @@ void Component::Run() {
   try {
     TgBot::TgLongPoll long_poll(bot_, 100, 1);
 
-    RegisterCommand("start", &Component::OnStartCommand);
+    RegisterCommand("add_birthday", &Component::OnAddBirthdayCommand);
     RegisterCommand("chat_id", &Component::OnChatIdCommand);
     RegisterCommand("next_birthdays", &Component::OnNextBirthdaysCommand);
-    RegisterCommand("add_birthday", &Component::OnAddBirthdayCommand);
     RegisterCommand("register", &Component::OnRegisterCommand);
+    RegisterCommand("start", &Component::OnStartCommand);
+    RegisterCommand("unregister", &Component::OnUnregisterCommand);
 
     bot_.getEvents().onCallbackQuery(
         [this](const TgBot::CallbackQuery::Ptr callback) {

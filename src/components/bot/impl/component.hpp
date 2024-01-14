@@ -70,6 +70,7 @@ class Component final {
                               const models::ButtonData& button_data);
   void OnCancelButton(models::ChatId chat_id, int32_t message_id);
   void OnRegisterCommand(TgBot::Message::Ptr message);
+  void OnUnregisterCommand(TgBot::Message::Ptr message);
   void OnCallbackQuery(const TgBot::CallbackQuery::Ptr callback);
 };
 
