@@ -30,6 +30,12 @@ FROM birthday.users
 WHERE users.id = $1
 )";
 
+const std::string kDeleteUserQuery = R"(
+DELETE
+FROM birthday.users
+WHERE users.id = $1
+)";
+
 struct Row {
   models::UserId id{};
   models::ChatId chat_id{};
@@ -63,6 +69,12 @@ models::ChatId GetChatId(const models::UserId user_id,
                        kFindUserById, user_id);
   const auto row = rows.AsSingleRow<Row>(userver::storages::postgres::kRowTag);
   return row.chat_id;
+}
+
+void DeleteUser(const models::UserId user_id,
+                userver::storages::postgres::Cluster& postgres) {
+  postgres.Execute(userver::storages::postgres::ClusterHostType::kMaster,
+                   kDeleteUserQuery, user_id);
 }
 
 }  // namespace telegram_bot::db
